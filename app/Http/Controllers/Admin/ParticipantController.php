@@ -1,0 +1,67 @@
+<?php
+
+namespace App\Http\Controllers\Admin;
+
+use App\Http\Controllers\Controller;
+use App\Models\User;
+use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
+
+class ParticipantController extends Controller
+{
+    // Menampilkan semua peserta
+    public function index(Request $request)
+    {
+        $query = User::where('email', '!=', 'admin@upc.com');
+
+        // Fitur Pencarian Nama/Sekolah
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('asal_sekolah', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "%{$search}%");
+            });
+        }
+
+        // Fitur Filter Status Verifikasi
+        if ($request->filled('status')) {
+            $query->where('status_verifikasi', $request->status);
+        }
+
+        $peserta = $query->orderBy('created_at', 'desc')->paginate(15)->withQueryString();
+
+        return view('admin.peserta.index', compact('peserta'));
+    }
+
+    // Menampilkan form edit peserta
+    public function edit(User $user)
+    {
+        return view('admin.peserta.edit', compact('user'));
+    }
+
+    // Menyimpan perubahan data peserta
+    public function update(Request $request, User $user)
+    {
+        $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email', Rule::unique('users')->ignore($user->id)],
+            'asal_sekolah' => ['required', 'string', 'max:255'],
+            'no_wa' => ['required', 'string', 'max:20'],
+            'status_verifikasi' => ['required', 'in:pending,verified,rejected'],
+        ]);
+
+        $user->update($request->only(['name', 'email', 'asal_sekolah', 'no_wa', 'status_verifikasi']));
+
+        return redirect()->route('admin.peserta.index')->with('success', 'Data peserta berhasil diperbarui!');
+    }
+
+    // Menghapus data peserta
+    public function destroy(User $user)
+    {
+        // Jika menggunakan Spatie Media Library, file kartu pelajar akan otomatis terhapus
+        $user->delete();
+
+        return redirect()->route('admin.peserta.index')->with('success', 'Peserta berhasil dihapus dari sistem.');
+    }
+}
