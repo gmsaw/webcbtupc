@@ -37,6 +37,8 @@ Route::get('/', function () {
     return view('welcome');
 });
 
+Route::post('/api/payment-callback', [\App\Http\Controllers\PaymentCallbackController::class, 'receive']);
+
 // =========================================================================
 // AREA WAJIB LOGIN (AUTH)
 // =========================================================================
@@ -75,6 +77,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // (A) Manajemen Verifikasi Pendaftaran
         Route::get('/admin/verifikasi', [VerificationController::class, 'index'])->name('admin.verifikasi');
         Route::put('/admin/verifikasi/{registration}', [VerificationController::class, 'update'])->name('admin.verifikasi.update');
+        Route::delete('/admin/verifikasi/{registration}', [VerificationController::class, 'destroy'])->name('admin.verifikasi.destroy');
 
         // (B) Manajemen Data Akun Peserta
         Route::get('/admin/peserta', [ParticipantController::class, 'index'])->name('admin.peserta.index');
@@ -105,6 +108,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // ------------------------------------------
     // Pendaftaran Lomba
     Route::post('/user/daftar-kompetisi', [UserRegistrationController::class, 'store'])->name('user.kompetisi.daftar');
+
+    // Checkout Midtrans Lomba
+    Route::get('/user/checkout-lomba/{registration}', function (Registration $registration) {
+        if ($registration->user_id !== Auth::id() || $registration->status_pendaftaran !== 'pending') {
+            abort(403, 'Akses tidak valid.');
+        }
+        return view('user.checkout-lomba-midtrans', compact('registration'));
+    })->name('user.kompetisi.checkout');
     
     // Pusat Informasi & Pengumuman
     Route::get('/user/pengumuman', [UserAnnouncementController::class, 'index'])->name('user.pengumuman');

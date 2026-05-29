@@ -16,7 +16,8 @@ class MerchandiseTransaction extends Model implements HasMedia
         'merchandise_id',
         'nominal',
         'metode_pembayaran',
-        'status'
+        'status',
+        'snap_token'
     ];
 
     public function user()

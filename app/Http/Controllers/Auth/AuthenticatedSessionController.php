@@ -24,10 +24,16 @@ class AuthenticatedSessionController extends Controller
      */
     public function store(LoginRequest $request): RedirectResponse
     {
+        // 1. Proses validasi email & password
         $request->authenticate();
 
+        // 2. Cegah Session Fixation (Keamanan bawaan)
         $request->session()->regenerate();
 
+        // 3. PROTEKSI SINGLE DEVICE: Keluarkan akun ini dari perangkat/browser lain
+        Auth::logoutOtherDevices($request->password);
+
+        // 4. Arahkan masuk ke Dashboard
         return redirect()->intended(route('dashboard', absolute: false));
     }
 

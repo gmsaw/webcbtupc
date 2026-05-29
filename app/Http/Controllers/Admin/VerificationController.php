@@ -58,4 +58,21 @@ class VerificationController extends Controller
 
         return redirect()->back()->with('success', $pesan);
     }
+
+    /**
+     * Menghapus (Menolak) Pendaftaran Peserta
+     */
+    public function destroy(Registration $registration)
+    {
+        // 1. (Opsional) Hapus file bukti pembayaran dari server agar storage tidak penuh
+        if ($registration->hasMedia('bukti_pembayaran_lomba')) {
+            $registration->clearMediaCollection('bukti_pembayaran_lomba');
+        }
+
+        // 2. Hapus data pendaftaran
+        $registration->delete();
+
+        // 3. Kembalikan ke halaman verifikasi dengan pesan sukses
+        return back()->with('success', 'Pendaftaran berhasil ditolak dan dihapus. Peserta kini dapat mendaftar ulang.');
+    }
 }

@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use Midtrans\Config;
+use Midtrans\Snap;
 use App\Models\Competition;
 use App\Models\Registration;
 use Illuminate\Http\Request;
@@ -73,38 +75,72 @@ class UserRegistrationController extends Controller
             }
         }
 
-        // 6. Tentukan Status Pembayaran Awal
-        // Jika lomba gratis, langsung anggap 'paid'
+        // 6. Buat Order ID Unik & Tentukan Status Awal
+        $orderId = 'REG-' . time() . '-' . $user->id;
+        
+        // Jika lomba gratis, langsung anggap lunas dan terverifikasi
         $statusPembayaran = ($newComp->harga_pendaftaran == 0) ? 'paid' : 'unpaid';
+        $statusPendaftaran = ($newComp->harga_pendaftaran == 0) ? 'verified' : 'pending';
 
         // 7. Simpan Data Pendaftaran ke Database
         $registration = Registration::create([
+            'order_id' => $orderId,
             'user_id' => $user->id,
             'competition_id' => $newComp->id,
-            'status_pendaftaran' => 'pending',
-            'status_pembayaran' => $statusPembayaran,
+            'status_pendaftaran' => $statusPendaftaran,
+            'metode_pembayaran' => $request->metode_pembayaran ?? 'manual',
+            // Jika Anda menggunakan kolom status_pembayaran di tabel, buka komentar di bawah ini:
+            // 'status_pembayaran' => $statusPembayaran, 
         ]);
 
         // 8. Eksekusi Pembayaran Berdasarkan Metode
         if ($newComp->harga_pendaftaran > 0) {
             
             if ($request->metode_pembayaran === 'manual') {
-                // Simpan Bukti Transfer
+                // Simpan Bukti Transfer menggunakan Spatie Media Library
                 if ($request->hasFile('bukti_pembayaran')) {
-                    $registration->addMediaFromRequest('bukti_pembayaran')->toMediaCollection('bukti_pembayaran');
+                    $registration->addMediaFromRequest('bukti_pembayaran')->toMediaCollection('bukti_pembayaran_lomba');
                 }
                 return back()->with('success', 'Berhasil mendaftar! Bukti pembayaran Anda telah dikirim dan sedang menunggu verifikasi panitia.');
             
             } elseif ($request->metode_pembayaran === 'gateway') {
-                // TODO: Integrasi Midtrans
-                // Di sini nanti kita akan generate Snap Token dari Midtrans 
-                // dan me-redirect user ke halaman pembayaran otomatis.
-                return back()->with('success', 'Berhasil mendaftar! (Catatan: Sistem Payment Gateway sedang dalam tahap pengembangan).');
-            }
+                // Integrasi Midtrans
+                Config::$serverKey = env('MIDTRANS_SERVER_KEY');
+                Config::$isProduction = env('MIDTRANS_IS_PRODUCTION', false);
+                Config::$isSanitized = true;
+                Config::$is3ds = true;
 
+                $params = [
+                    'transaction_details' => [
+                        'order_id' => $orderId,
+                        'gross_amount' => (int) $newComp->harga_pendaftaran,
+                    ],
+                    'customer_details' => [
+                        'first_name' => $user->name,
+                        'email' => $user->email,
+                    ],
+                    'item_details' => [
+                        [
+                            'id' => 'COMP-'.$newComp->id,
+                            'price' => (int) $newComp->harga_pendaftaran,
+                            'quantity' => 1,
+                            'name' => substr('Tiket: '.$newComp->nama_lomba, 0, 50)
+                        ]
+                    ]
+                ];
+
+                // Request Token ke Midtrans
+                $snapToken = Snap::getSnapToken($params);
+                
+                // Simpan token ke database
+                $registration->update(['snap_token' => $snapToken]);
+
+                // Arahkan ke halaman khusus pop-up Midtrans
+                return redirect()->route('user.kompetisi.checkout', $registration->id);
+            }
         }
 
         // Jika gratis
-        return back()->with('success', 'Berhasil mendaftar kompetisi secara gratis! Pendaftaran Anda sedang divalidasi oleh panitia.');
+        return back()->with('success', 'Berhasil mendaftar kompetisi secara gratis! Pendaftaran Anda otomatis divalidasi oleh sistem.');
     }
 }

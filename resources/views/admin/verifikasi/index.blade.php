@@ -60,7 +60,7 @@
                                                 nama: '{{ addslashes($reg->user->name) }}',
                                                 lomba: '{{ addslashes($reg->competition->nama_lomba) }}',
                                                 harga: '{{ $reg->competition->harga_pendaftaran == 0 ? 'GRATIS' : 'Rp ' . number_format($reg->competition->harga_pendaftaran, 0, ',', '.') }}',
-                                                bukti: '{{ $reg->hasMedia('bukti_pembayaran') ? $reg->getFirstMediaUrl('bukti_pembayaran') : '' }}',
+                                                bukti: '{{ $reg->hasMedia('bukti_pembayaran_lomba') ? $reg->getFirstMediaUrl('bukti_pembayaran_lomba') : ($reg->hasMedia('bukti_pembayaran') ? $reg->getFirstMediaUrl('bukti_pembayaran') : '') }}',
                                                 kartu: '{{ $reg->user->hasMedia('kartu_pelajar') ? $reg->user->getFirstMediaUrl('kartu_pelajar') : '' }}'
                                             }; docModal = true" 
                                             class="inline-flex items-center gap-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-lg text-xs font-bold transition">
@@ -86,17 +86,18 @@
                                                     @csrf
                                                     @method('PUT')
                                                     <input type="hidden" name="status" value="verified">
-                                                    <button type="submit" onclick="return confirm('Setujui pendaftaran ini?')" class="p-2 bg-green-50 text-green-600 hover:bg-green-500 hover:text-white rounded-lg transition" title="Terima">
-                                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                                    <button type="submit" onclick="return confirm('Setujui pendaftaran ini?')" class="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-600 hover:bg-green-600 hover:text-white rounded-lg transition font-bold text-xs shadow-sm" title="Terima">
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                                        Setujui
                                                     </button>
                                                 </form>
 
-                                                <form action="{{ route('admin.verifikasi.update', $reg->id) }}" method="POST" class="inline">
+                                                <form action="{{ route('admin.verifikasi.destroy', $reg->id) }}" method="POST" class="inline">
                                                     @csrf
-                                                    @method('PUT')
-                                                    <input type="hidden" name="status" value="rejected">
-                                                    <button type="submit" onclick="return confirm('Tolak pendaftaran ini?')" class="p-2 bg-red-50 text-red-600 hover:bg-red-500 hover:text-white rounded-lg transition" title="Tolak">
-                                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                                    @method('DELETE')
+                                                    <button type="submit" onclick="return confirm('Apakah Anda yakin ingin menolak dan menghapus pendaftaran ini? Peserta harus mengulang pendaftaran dari awal.')" class="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 hover:bg-red-600 hover:text-white rounded-lg transition font-bold text-xs shadow-sm" title="Tolak & Hapus">
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                                        Tolak & Hapus
                                                     </button>
                                                 </form>
                                             </div>
@@ -198,5 +199,5 @@
                 </div>
             </div>
         </div>
-        </div>
+    </div>
 </x-app-layout>
