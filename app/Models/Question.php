@@ -7,26 +7,14 @@ use Illuminate\Database\Eloquent\Model;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 
-class Registration extends Model implements HasMedia
+class Question extends Model implements HasMedia
 {
     use HasFactory, InteractsWithMedia;
 
     protected $fillable = [
-        'order_id',
-        'snap_token',
-        'user_id', 
-        'competition_id', 
-        'status_pendaftaran', 
-        'status_pembayaran', 
-        'nilai_cbt', 
-        'is_winner', 
-        'peringkat'
+        'competition_id', 'pertanyaan', 'opsi_a', 'opsi_b', 
+        'opsi_c', 'opsi_d', 'opsi_e', 'jawaban_benar', 'bobot_nilai'
     ];
-
-    public function user()
-    {
-        return $this->belongsTo(User::class);
-    }
 
     public function competition()
     {

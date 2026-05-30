@@ -100,6 +100,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // (E) Verifikasi Pembelian Merchandise
         Route::get('/admin/verifikasi-merchandise', [MerchandiseVerificationController::class, 'index'])->name('admin.merchandise.verifikasi');
         Route::put('/admin/verifikasi-merchandise/{transaction}', [MerchandiseVerificationController::class, 'update'])->name('admin.merchandise.verifikasi.update');
+
+        // Manajemen Bank Soal Kompetisi
+        Route::get('/admin/kompetisi/{competition}/soal', [\App\Http\Controllers\Admin\QuestionController::class, 'index'])->name('admin.kompetisi.soal.index');
+        Route::post('/admin/kompetisi/{competition}/soal', [\App\Http\Controllers\Admin\QuestionController::class, 'store'])->name('admin.kompetisi.soal.store');
+        Route::delete('/admin/soal/{question}', [\App\Http\Controllers\Admin\QuestionController::class, 'destroy'])->name('admin.kompetisi.soal.destroy');
     });
 
 
@@ -116,6 +121,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         }
         return view('user.checkout-lomba-midtrans', compact('registration'));
     })->name('user.kompetisi.checkout');
+
+    // Sistem CBT
+    Route::get('/user/ujian/{registration}', [\App\Http\Controllers\User\CbtController::class, 'show'])->name('user.ujian.show');
+    Route::post('/user/ujian/{registration}/submit', [\App\Http\Controllers\User\CbtController::class, 'submit'])->name('user.ujian.submit');
     
     // Pusat Informasi & Pengumuman
     Route::get('/user/pengumuman', [UserAnnouncementController::class, 'index'])->name('user.pengumuman');

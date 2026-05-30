@@ -30,7 +30,7 @@
                             <tr>
                                 <th scope="col" class="py-4 px-6">Peserta & Lomba</th>
                                 <th scope="col" class="py-4 px-6 text-center">Waktu Daftar</th>
-                                <th scope="col" class="py-4 px-6 text-center">Bukti Bayar & Dokumen</th>
+                                <th scope="col" class="py-4 px-6 text-center">Dokumen & Pembayaran</th>
                                 <th scope="col" class="py-4 px-6 text-center">Status</th>
                                 <th scope="col" class="py-4 px-6 text-right">Aksi</th>
                             </tr>
@@ -60,12 +60,13 @@
                                                 nama: '{{ addslashes($reg->user->name) }}',
                                                 lomba: '{{ addslashes($reg->competition->nama_lomba) }}',
                                                 harga: '{{ $reg->competition->harga_pendaftaran == 0 ? 'GRATIS' : 'Rp ' . number_format($reg->competition->harga_pendaftaran, 0, ',', '.') }}',
-                                                bukti: '{{ $reg->hasMedia('bukti_pembayaran_lomba') ? $reg->getFirstMediaUrl('bukti_pembayaran_lomba') : ($reg->hasMedia('bukti_pembayaran') ? $reg->getFirstMediaUrl('bukti_pembayaran') : '') }}',
+                                                order_id: '{{ $reg->order_id ?? 'Tidak Ada' }}',
+                                                status: '{{ $reg->status_pendaftaran }}',
                                                 kartu: '{{ $reg->user->hasMedia('kartu_pelajar') ? $reg->user->getFirstMediaUrl('kartu_pelajar') : '' }}'
                                             }; docModal = true" 
                                             class="inline-flex items-center gap-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-lg text-xs font-bold transition">
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
-                                            Cek Dokumen
+                                            Cek Detail
                                         </button>
                                     </td>
                                     
@@ -86,7 +87,7 @@
                                                     @csrf
                                                     @method('PUT')
                                                     <input type="hidden" name="status" value="verified">
-                                                    <button type="submit" onclick="return confirm('Setujui pendaftaran ini?')" class="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-600 hover:bg-green-600 hover:text-white rounded-lg transition font-bold text-xs shadow-sm" title="Terima">
+                                                    <button type="submit" onclick="return confirm('Setujui secara manual (Abaikan Midtrans)?')" class="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-600 hover:bg-green-600 hover:text-white rounded-lg transition font-bold text-xs shadow-sm" title="Terima Manual">
                                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
                                                         Setujui
                                                     </button>
@@ -95,7 +96,7 @@
                                                 <form action="{{ route('admin.verifikasi.destroy', $reg->id) }}" method="POST" class="inline">
                                                     @csrf
                                                     @method('DELETE')
-                                                    <button type="submit" onclick="return confirm('Apakah Anda yakin ingin menolak dan menghapus pendaftaran ini? Peserta harus mengulang pendaftaran dari awal.')" class="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 hover:bg-red-600 hover:text-white rounded-lg transition font-bold text-xs shadow-sm" title="Tolak & Hapus">
+                                                    <button type="submit" onclick="return confirm('Apakah Anda yakin ingin menghapus pendaftaran ini?')" class="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 hover:bg-red-600 hover:text-white rounded-lg transition font-bold text-xs shadow-sm" title="Tolak & Hapus">
                                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                                                         Tolak & Hapus
                                                     </button>
@@ -142,7 +143,7 @@
                     
                     <div class="bg-gray-50 px-6 py-4 border-b border-gray-100 flex justify-between items-center">
                         <div>
-                            <h3 class="text-lg font-bold text-gray-900" x-text="'Dokumen: ' + activeData.nama"></h3>
+                            <h3 class="text-lg font-bold text-gray-900" x-text="'Detail: ' + activeData.nama"></h3>
                             <p class="text-xs text-gray-500 font-medium mt-0.5" x-text="activeData.lomba + ' (' + activeData.harga + ')'"></p>
                         </div>
                         <button @click="docModal = false" class="text-gray-400 hover:text-gray-600 transition bg-white rounded-lg p-1.5 border border-gray-200">
@@ -170,28 +171,33 @@
                         </div>
 
                         <div class="flex-1 bg-white p-4 rounded-2xl shadow-sm border border-gray-200">
-                            <h4 class="text-sm font-bold text-gray-700 mb-3 text-center uppercase tracking-wider">Bukti Pembayaran</h4>
-                            <div class="w-full h-64 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200 flex items-center justify-center overflow-hidden">
+                            <h4 class="text-sm font-bold text-gray-700 mb-3 text-center uppercase tracking-wider">Status Pembayaran</h4>
+                            <div class="w-full h-64 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center p-6 text-center overflow-hidden">
+                                
                                 <template x-if="activeData.harga === 'GRATIS'">
-                                    <div class="text-center text-green-500">
-                                        <svg class="w-10 h-10 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                                        <p class="text-sm font-bold">Kompetisi Gratis</p>
-                                        <p class="text-xs text-gray-500 mt-1">Tidak memerlukan bukti transfer</p>
+                                    <div class="text-green-500">
+                                        <svg class="w-12 h-12 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                        <p class="text-base font-bold">Kompetisi Gratis</p>
+                                        <p class="text-xs text-gray-500 mt-1">Tidak memerlukan pembayaran tagihan.</p>
                                     </div>
                                 </template>
                                 
-                                <template x-if="activeData.harga !== 'GRATIS' && activeData.bukti !== ''">
-                                    <a :href="activeData.bukti" target="_blank" title="Klik untuk memperbesar">
-                                        <img :src="activeData.bukti" class="w-full h-full object-contain hover:scale-105 transition-transform cursor-pointer">
-                                    </a>
-                                </template>
+                                <template x-if="activeData.harga !== 'GRATIS'">
+                                    <div class="w-full">
+                                        <div class="mb-5">
+                                            <svg class="w-12 h-12 mx-auto mb-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
+                                            <p class="text-base font-bold text-gray-900">Payment Gateway</p>
+                                            <div class="mt-2 bg-white border border-gray-200 rounded-lg py-1.5 px-3 inline-block">
+                                                <p class="text-xs font-mono text-gray-600" x-text="activeData.order_id"></p>
+                                            </div>
+                                        </div>
 
-                                <template x-if="activeData.harga !== 'GRATIS' && activeData.bukti === ''">
-                                    <div class="text-center text-red-400">
-                                        <svg class="w-8 h-8 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-                                        <p class="text-xs font-bold">Belum Ada Bukti</p>
+                                        <div class="w-full rounded-xl py-3 border" :class="activeData.status === 'verified' ? 'bg-green-50 border-green-200 text-green-700' : (activeData.status === 'pending' ? 'bg-yellow-50 border-yellow-200 text-yellow-700' : 'bg-red-50 border-red-200 text-red-700')">
+                                            <p class="text-sm font-black tracking-wider uppercase" x-text="activeData.status === 'verified' ? 'LUNAS (OTOMATIS)' : (activeData.status === 'pending' ? 'MENUNGGU PEMBAYARAN' : 'DIBATALKAN / DITOLAK')"></p>
+                                        </div>
                                     </div>
                                 </template>
+
                             </div>
                         </div>
 

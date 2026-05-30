@@ -36,4 +36,10 @@ class Competition extends Model implements HasMedia
     {
         return $this->hasMany(Registration::class);
     }
+
+    // Tambahkan ini di dalam class Competition
+    public function questions()
+    {
+        return $this->hasMany(Question::class);
+    }
 }
