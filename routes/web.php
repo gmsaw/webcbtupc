@@ -84,6 +84,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/admin/peserta/{user}/edit', [ParticipantController::class, 'edit'])->name('admin.peserta.edit');
         Route::put('/admin/peserta/{user}', [ParticipantController::class, 'update'])->name('admin.peserta.update');
         Route::delete('/admin/peserta/{user}', [ParticipantController::class, 'destroy'])->name('admin.peserta.destroy');
+        //DERBUG
+        Route::delete('/admin/peserta/{user}/reset', [ParticipantController::class, 'resetRegistrations'])->name('admin.peserta.reset');
 
         // (C) Manajemen Kompetisi / Lomba
         Route::get('/admin/kompetisi', [CompetitionController::class, 'index'])->name('admin.kompetisi.index');
@@ -123,8 +125,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     })->name('user.kompetisi.checkout');
 
     // Sistem CBT
+    Route::get('/user/ujian/{registration}/persiapan', [\App\Http\Controllers\User\CbtController::class, 'prepare'])->name('user.ujian.prepare');
     Route::get('/user/ujian/{registration}', [\App\Http\Controllers\User\CbtController::class, 'show'])->name('user.ujian.show');
     Route::post('/user/ujian/{registration}/submit', [\App\Http\Controllers\User\CbtController::class, 'submit'])->name('user.ujian.submit');
+    // AUTO SAVE
+    Route::post('/user/ujian/{registration}/autosave', [\App\Http\Controllers\User\CbtController::class, 'autosave'])->name('user.ujian.autosave');
     
     // Pusat Informasi & Pengumuman
     Route::get('/user/pengumuman', [UserAnnouncementController::class, 'index'])->name('user.pengumuman');

@@ -65,18 +65,25 @@
                         <thead class="text-xs text-gray-500 uppercase bg-gray-50 border-b border-gray-100 tracking-wider">
                             <tr>
                                 <th scope="col" class="py-4 px-6">Informasi Peserta</th>
-                                <th scope="col" class="py-4 px-6">Asal Sekolah</th>
-                                <th scope="col" class="py-4 px-6 text-center">Status</th>
-                                <th scope="col" class="py-4 px-6 text-right">Aksi</th>
+                                <th scope="col" class="py-4 px-6 text-center">Asal Sekolah</th>
+                                <th scope="col" class="py-4 px-6 text-center">Total Lomba</th>
+                                <th scope="col" class="py-4 px-6 text-right">Aksi & Debugging</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100" x-data="{ modalOpen: false, modalData: {} }">
                             @forelse ($peserta as $user)
+                                @php
+                                    $jumlahLomba = \App\Models\Registration::where('user_id', $user->id)->count();
+                                @endphp
                                 <tr class="bg-white hover:bg-blue-50/50 transition-colors group">
                                     <td class="py-4 px-6 whitespace-nowrap">
                                         <div class="flex items-center gap-4">
-                                            <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-100 to-cyan-100 text-blue-700 flex items-center justify-center font-bold text-lg shadow-sm border border-white">
-                                                {{ substr($user->name, 0, 1) }}
+                                            <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-100 to-cyan-100 text-blue-700 flex items-center justify-center font-bold text-lg shadow-sm border border-white shrink-0 overflow-hidden">
+                                                @if($user->hasMedia('foto_profil'))
+                                                    <img src="{{ $user->getFirstMediaUrl('foto_profil') }}" class="w-full h-full object-cover">
+                                                @else
+                                                    {{ substr($user->name, 0, 1) }}
+                                                @endif
                                             </div>
                                             <div>
                                                 <div class="font-bold text-gray-900 text-base">{{ $user->name }}</div>
@@ -85,29 +92,22 @@
                                             </div>
                                         </div>
                                     </td>
-                                    <td class="py-4 px-6 font-medium text-gray-700">
-                                        <div class="flex items-center gap-2">
+                                    
+                                    <td class="py-4 px-6 text-center font-medium text-gray-700">
+                                        <div class="flex items-center justify-center gap-2">
                                             <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m3-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
-                                            {{ $user->asal_sekolah }}
+                                            {{ $user->asal_sekolah ?? 'Belum Diisi' }}
                                         </div>
                                     </td>
-                                    <td class="py-4 px-6 text-center">
-                                        @if($user->status_verifikasi === 'verified')
-                                            <span class="inline-flex items-center gap-1.5 bg-green-50 text-green-700 text-xs font-bold px-3 py-1.5 rounded-lg border border-green-200">
-                                                <span class="w-1.5 h-1.5 bg-green-500 rounded-full"></span> Terverifikasi
-                                            </span>
-                                        @elseif($user->status_verifikasi === 'pending')
-                                            <span class="inline-flex items-center gap-1.5 bg-yellow-50 text-yellow-700 text-xs font-bold px-3 py-1.5 rounded-lg border border-yellow-200">
-                                                <span class="w-1.5 h-1.5 bg-yellow-500 rounded-full animate-pulse"></span> Menunggu
-                                            </span>
-                                        @else
-                                            <span class="inline-flex items-center gap-1.5 bg-red-50 text-red-700 text-xs font-bold px-3 py-1.5 rounded-lg border border-red-200">
-                                                <span class="w-1.5 h-1.5 bg-red-500 rounded-full"></span> Ditolak
-                                            </span>
-                                        @endif
+                                    
+                                    <td class="py-4 px-6 text-center font-medium">
+                                        <span class="inline-flex items-center justify-center w-8 h-8 rounded-full {{ $jumlahLomba > 0 ? 'bg-blue-100 text-blue-700 font-bold' : 'bg-gray-100 text-gray-400' }}">
+                                            {{ $jumlahLomba }}
+                                        </span>
                                     </td>
+                                    
                                     <td class="py-4 px-6 text-right">
-                                        <div class="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <div class="flex items-center justify-end gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                                             
                                             <button @click="modalData = { name: '{{ addslashes($user->name) }}', email: '{{ $user->email }}', school: '{{ addslashes($user->asal_sekolah) }}', wa: '{{ $user->no_wa }}', status: '{{ $user->status_verifikasi }}', img: '{{ $user->hasMedia('kartu_pelajar') ? $user->getFirstMediaUrl('kartu_pelajar') : '' }}' }; modalOpen = true" 
                                                     class="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Lihat Detail">
@@ -118,13 +118,22 @@
                                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
                                             </a>
 
+                                            <form action="{{ route('admin.peserta.reset', $user->id) }}" method="POST" class="inline">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" onclick="return confirm('🛠️ DEBUG MODE: Yakin ingin MENGHAPUS SEMUA pendaftaran lomba dan riwayat nilai CBT milik akun ini? Akun peserta tidak akan dihapus, hanya riwayat lombanya saja yang dikosongkan.')" class="p-2 text-gray-500 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition" title="Reset Semua Riwayat Lomba (Debug)">
+                                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                                                </button>
+                                            </form>
+
                                             <form action="{{ route('admin.peserta.destroy', $user->id) }}" method="POST" class="inline">
                                                 @csrf
                                                 @method('DELETE')
-                                                <button type="submit" onclick="return confirm('Peringatan: Data yang dihapus tidak dapat dikembalikan. Lanjutkan?')" class="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition" title="Hapus Peserta">
+                                                <button type="submit" onclick="return confirm('Peringatan: Akun beserta seluruh data lombanya akan dihapus permanen. Lanjutkan?')" class="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition" title="Hapus Peserta">
                                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                                                 </button>
                                             </form>
+
                                         </div>
                                     </td>
                                 </tr>
@@ -212,7 +221,7 @@
                                     </div>
                                 </div>
                             </div>
-                            </tbody>
+                        </tbody>
                     </table>
                 </div>
             </div>

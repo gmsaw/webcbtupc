@@ -64,4 +64,28 @@ class ParticipantController extends Controller
 
         return redirect()->route('admin.peserta.index')->with('success', 'Peserta berhasil dihapus dari sistem.');
     }
+
+    /**
+     * FITUR DEBUG: Reset Seluruh Pendaftaran Lomba (Untuk Akun Tester)
+     */
+    public function resetRegistrations(User $user)
+    {
+        // 1. Ambil semua pendaftaran lomba milik user ini
+        $registrations = \App\Models\Registration::where('user_id', $user->id)->get();
+        
+        foreach ($registrations as $reg) {
+            // 2. Bersihkan file gambar/resi pembayaran di server (agar storage tidak penuh)
+            if ($reg->hasMedia('bukti_pembayaran_lomba')) {
+                $reg->clearMediaCollection('bukti_pembayaran_lomba');
+            }
+            if ($reg->hasMedia('bukti_pembayaran')) {
+                $reg->clearMediaCollection('bukti_pembayaran');
+            }
+            
+            // 3. Hapus data (Otomatis mereset status Midtrans dan nilai CBT)
+            $reg->delete();
+        }
+
+        return back()->with('success', '🛠️ DEBUG: Semua riwayat pendaftaran lomba, tagihan Midtrans, dan nilai CBT milik "' . $user->name . '" berhasil dihapus bersih!');
+    }
 }

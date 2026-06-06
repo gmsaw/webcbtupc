@@ -55,7 +55,7 @@
                         @if($reg->status_pendaftaran === 'verified')
                             <div class="flex flex-wrap gap-2 w-full md:w-auto mt-2 md:mt-0 pt-3 md:pt-0 border-t md:border-t-0 border-gray-100">
                                 @if(is_null($reg->nilai_cbt))
-                                <a href="{{ route('user.ujian.show', $reg->id) }}" class="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-sm transition text-center flex items-center justify-center">
+                                <a href="{{ route('user.ujian.prepare', $reg->id) }}" class="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-sm transition text-center flex items-center justify-center">
                                     Mulai CBT
                                 </a>
                                 @else
