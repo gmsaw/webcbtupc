@@ -11,7 +11,7 @@
         </div>
     </x-slot>
 
-    <div class="py-10" x-data="{ docModal: false, activeData: {} }">
+    <div class="py-10">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
             
             @if(session('success'))
@@ -23,185 +23,76 @@
                 </div>
             @endif
 
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-3xl border border-gray-100">
-                <div class="overflow-x-auto relative">
-                    <table class="w-full text-sm text-left text-gray-600">
-                        <thead class="text-xs text-gray-500 uppercase bg-gray-50 border-b border-gray-100">
-                            <tr>
-                                <th scope="col" class="py-4 px-6">Peserta & Lomba</th>
-                                <th scope="col" class="py-4 px-6 text-center">Waktu Daftar</th>
-                                <th scope="col" class="py-4 px-6 text-center">Dokumen & Pembayaran</th>
-                                <th scope="col" class="py-4 px-6 text-center">Status</th>
-                                <th scope="col" class="py-4 px-6 text-right">Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-100">
-                            @forelse ($registrations as $reg)
-                                <tr class="bg-white hover:bg-blue-50/30 transition-colors {{ $reg->status_pendaftaran === 'pending' ? 'bg-yellow-50/10' : '' }}">
-                                    <td class="py-4 px-6 whitespace-nowrap">
-                                        <div class="font-bold text-gray-900 text-base">{{ $reg->user->name }}</div>
-                                        <div class="text-xs text-gray-500 mb-1 flex items-center gap-1">
-                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m3-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
-                                            {{ $reg->user->asal_sekolah }}
-                                        </div>
-                                        <div class="inline-flex items-center gap-1 bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded text-xs font-bold border border-indigo-100 mt-1">
-                                            Lomba: {{ $reg->competition->nama_lomba }}
-                                        </div>
-                                    </td>
-                                    
-                                    <td class="py-4 px-6 text-center font-medium">
-                                        {{ $reg->created_at->format('d M Y') }}<br>
-                                        <span class="text-xs text-gray-400">{{ $reg->created_at->format('H:i') }} WITA</span>
-                                    </td>
-                                    
-                                    <td class="py-4 px-6 text-center">
-                                        <button type="button" 
-                                            @click="activeData = { 
-                                                nama: '{{ addslashes($reg->user->name) }}',
-                                                lomba: '{{ addslashes($reg->competition->nama_lomba) }}',
-                                                harga: '{{ $reg->competition->harga_pendaftaran == 0 ? 'GRATIS' : 'Rp ' . number_format($reg->competition->harga_pendaftaran, 0, ',', '.') }}',
-                                                order_id: '{{ $reg->order_id ?? 'Tidak Ada' }}',
-                                                status: '{{ $reg->status_pendaftaran }}',
-                                                kartu: '{{ $reg->user->hasMedia('kartu_pelajar') ? $reg->user->getFirstMediaUrl('kartu_pelajar') : '' }}'
-                                            }; docModal = true" 
-                                            class="inline-flex items-center gap-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-lg text-xs font-bold transition">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
-                                            Cek Detail
-                                        </button>
-                                    </td>
-                                    
-                                    <td class="py-4 px-6 text-center">
-                                        @if($reg->status_pendaftaran === 'verified')
-                                            <span class="bg-green-100 text-green-700 text-xs font-bold px-3 py-1 rounded-full border border-green-200">Disetujui</span>
-                                        @elseif($reg->status_pendaftaran === 'pending')
-                                            <span class="bg-yellow-100 text-yellow-700 text-xs font-bold px-3 py-1 rounded-full border border-yellow-200 animate-pulse">Menunggu</span>
-                                        @else
-                                            <span class="bg-red-100 text-red-700 text-xs font-bold px-3 py-1 rounded-full border border-red-200">Ditolak</span>
-                                        @endif
-                                    </td>
-                                    
-                                    <td class="py-4 px-6 text-right">
-                                        @if($reg->status_pendaftaran === 'pending')
-                                            <div class="flex items-center justify-end gap-2">
-                                                <form action="{{ route('admin.verifikasi.update', $reg->id) }}" method="POST" class="inline">
-                                                    @csrf
-                                                    @method('PUT')
-                                                    <input type="hidden" name="status" value="verified">
-                                                    <button type="submit" onclick="return confirm('Setujui secara manual (Abaikan Midtrans)?')" class="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-600 hover:bg-green-600 hover:text-white rounded-lg transition font-bold text-xs shadow-sm" title="Terima Manual">
-                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                                                        Setujui
-                                                    </button>
-                                                </form>
-
-                                                <form action="{{ route('admin.verifikasi.destroy', $reg->id) }}" method="POST" class="inline">
-                                                    @csrf
-                                                    @method('DELETE')
-                                                    <button type="submit" onclick="return confirm('Apakah Anda yakin ingin menghapus pendaftaran ini?')" class="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 hover:bg-red-600 hover:text-white rounded-lg transition font-bold text-xs shadow-sm" title="Tolak & Hapus">
-                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                                                        Tolak & Hapus
-                                                    </button>
-                                                </form>
-                                            </div>
-                                        @else
-                                            <form action="{{ route('admin.verifikasi.update', $reg->id) }}" method="POST" class="inline">
-                                                @csrf
-                                                @method('PUT')
-                                                <input type="hidden" name="status" value="pending">
-                                                <button type="submit" onclick="return confirm('Kembalikan status ke Pending?')" class="text-xs font-medium text-gray-400 hover:text-gray-700 underline transition">
-                                                    Batalkan Status
-                                                </button>
-                                            </form>
-                                        @endif
-                                    </td>
-                                </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="5" class="py-12 text-center text-gray-500">
-                                        Tidak ada data pendaftaran masuk.
-                                    </td>
-                                </tr>
-                            @endforelse
-                        </tbody>
-                    </table>
+            @if(session('error'))
+                <div x-data="{ show: true }" x-show="show" x-init="setTimeout(() => show = false, 4000)" class="mb-6 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 rounded-r-2xl shadow-sm flex items-center justify-between transition-opacity">
+                    <div class="flex items-center gap-3">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        <span class="font-medium">{{ session('error') }}</span>
+                    </div>
                 </div>
-            </div>
-            
-            <div class="mt-6">
-                {{ $registrations->links() }}
-            </div>
-        </div>
+            @endif
 
-        <div x-show="docModal" style="display: none;" class="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-            <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-                <div x-show="docModal" x-transition.opacity class="fixed inset-0 bg-gray-900/80 backdrop-blur-sm transition-opacity" @click="docModal = false" aria-hidden="true"></div>
-                <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            <!-- Daftar Lomba sebagai Card -->
+            <div class="mb-8">
+                <h3 class="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                    Pilih Lomba
+                </h3>
                 
-                <div x-show="docModal" 
-                     x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
-                     x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100" x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
-                     class="inline-block align-bottom bg-white rounded-3xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full border border-gray-100">
-                    
-                    <div class="bg-gray-50 px-6 py-4 border-b border-gray-100 flex justify-between items-center">
-                        <div>
-                            <h3 class="text-lg font-bold text-gray-900" x-text="'Detail: ' + activeData.nama"></h3>
-                            <p class="text-xs text-gray-500 font-medium mt-0.5" x-text="activeData.lomba + ' (' + activeData.harga + ')'"></p>
-                        </div>
-                        <button @click="docModal = false" class="text-gray-400 hover:text-gray-600 transition bg-white rounded-lg p-1.5 border border-gray-200">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                        </button>
+                @if($competitions->isEmpty())
+                    <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-6 text-center">
+                        <svg class="w-12 h-12 mx-auto text-yellow-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                        <p class="text-gray-600 font-medium">Belum ada lomba yang tersedia</p>
+                        <p class="text-sm text-gray-400 mt-1">Silakan tambahkan lomba terlebih dahulu</p>
                     </div>
-
-                    <div class="px-6 py-6 flex flex-col md:flex-row gap-6 bg-gray-100">
-                        
-                        <div class="flex-1 bg-white p-4 rounded-2xl shadow-sm border border-gray-200">
-                            <h4 class="text-sm font-bold text-gray-700 mb-3 text-center uppercase tracking-wider">Kartu Pelajar</h4>
-                            <div class="w-full h-64 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200 flex items-center justify-center overflow-hidden">
-                                <template x-if="activeData.kartu !== ''">
-                                    <a :href="activeData.kartu" target="_blank" title="Klik untuk memperbesar">
-                                        <img :src="activeData.kartu" class="w-full h-full object-contain hover:scale-105 transition-transform cursor-pointer">
-                                    </a>
-                                </template>
-                                <template x-if="activeData.kartu === ''">
-                                    <div class="text-center text-gray-400">
-                                        <svg class="w-8 h-8 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-                                        <p class="text-xs font-bold">Belum Diunggah</p>
+                @else
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        @foreach($competitions as $comp)
+                            <a href="{{ route('admin.verifikasi.show', $comp->id) }}" 
+                               class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:border-indigo-500 hover:shadow-md transition-all group">
+                                <div class="flex justify-between items-start">
+                                    <div class="flex-1">
+                                        <h4 class="font-bold text-gray-800 group-hover:text-indigo-600 transition">
+                                            {{ $comp->nama_lomba }}
+                                        </h4>
+                                        <p class="text-sm text-gray-500 mt-1">
+                                            Total Pendaftar: 
+                                            <span class="font-semibold text-gray-700">{{ $comp->registrations_count }}</span>
+                                        </p>
                                     </div>
-                                </template>
-                            </div>
-                        </div>
-
-                        <div class="flex-1 bg-white p-4 rounded-2xl shadow-sm border border-gray-200">
-                            <h4 class="text-sm font-bold text-gray-700 mb-3 text-center uppercase tracking-wider">Status Pembayaran</h4>
-                            <div class="w-full h-64 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center p-6 text-center overflow-hidden">
+                                    <span class="bg-indigo-50 text-indigo-600 p-2 rounded-xl group-hover:bg-indigo-100 transition">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                                    </span>
+                                </div>
                                 
-                                <template x-if="activeData.harga === 'GRATIS'">
-                                    <div class="text-green-500">
-                                        <svg class="w-12 h-12 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                                        <p class="text-base font-bold">Kompetisi Gratis</p>
-                                        <p class="text-xs text-gray-500 mt-1">Tidak memerlukan pembayaran tagihan.</p>
-                                    </div>
-                                </template>
-                                
-                                <template x-if="activeData.harga !== 'GRATIS'">
-                                    <div class="w-full">
-                                        <div class="mb-5">
-                                            <svg class="w-12 h-12 mx-auto mb-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
-                                            <p class="text-base font-bold text-gray-900">Payment Gateway</p>
-                                            <div class="mt-2 bg-white border border-gray-200 rounded-lg py-1.5 px-3 inline-block">
-                                                <p class="text-xs font-mono text-gray-600" x-text="activeData.order_id"></p>
-                                            </div>
-                                        </div>
-
-                                        <div class="w-full rounded-xl py-3 border" :class="activeData.status === 'verified' ? 'bg-green-50 border-green-200 text-green-700' : (activeData.status === 'pending' ? 'bg-yellow-50 border-yellow-200 text-yellow-700' : 'bg-red-50 border-red-200 text-red-700')">
-                                            <p class="text-sm font-black tracking-wider uppercase" x-text="activeData.status === 'verified' ? 'LUNAS (OTOMATIS)' : (activeData.status === 'pending' ? 'MENUNGGU PEMBAYARAN' : 'DIBATALKAN / DITOLAK')"></p>
-                                        </div>
-                                    </div>
-                                </template>
-
-                            </div>
-                        </div>
-
+                                <!-- Status Ringkasan -->
+                                <div class="mt-3 flex gap-2 text-xs">
+                                    <span class="px-2 py-1 bg-yellow-50 text-yellow-700 rounded-full border border-yellow-200">
+                                        Pending: {{ $comp->registrations->where('status_pendaftaran', 'pending')->count() }}
+                                    </span>
+                                    <span class="px-2 py-1 bg-green-50 text-green-700 rounded-full border border-green-200">
+                                        Verified: {{ $comp->registrations->where('status_pendaftaran', 'verified')->count() }}
+                                    </span>
+                                    <span class="px-2 py-1 bg-red-50 text-red-700 rounded-full border border-red-200">
+                                        Rejected: {{ $comp->registrations->where('status_pendaftaran', 'rejected')->count() }}
+                                    </span>
+                                </div>
+                            </a>
+                        @endforeach
                     </div>
+                @endif
+            </div>
+
+            <!-- Info Tambahan -->
+            <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
+                <svg class="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <div>
+                    <p class="text-sm text-blue-800 font-medium">Tips Verifikasi</p>
+                    <ul class="text-xs text-blue-700 mt-1 list-disc list-inside space-y-0.5">
+                        <li>Klik pada card lomba untuk melihat daftar peserta</li>
+                        <li>Pastikan dokumen dan pembayaran sudah lengkap sebelum menyetujui</li>
+                        <li>Gunakan fitur "Cek Detail" untuk melihat bukti pembayaran</li>
+                    </ul>
                 </div>
             </div>
         </div>

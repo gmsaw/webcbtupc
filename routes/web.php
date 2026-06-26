@@ -75,9 +75,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware([\App\Http\Middleware\IsAdmin::class])->group(function () {
         
         // (A) Manajemen Verifikasi Pendaftaran
-        Route::get('/admin/verifikasi', [VerificationController::class, 'index'])->name('admin.verifikasi');
+        Route::get('/admin/verifikasi', [VerificationController::class, 'index'])->name('admin.verifikasi.index');
         Route::put('/admin/verifikasi/{registration}', [VerificationController::class, 'update'])->name('admin.verifikasi.update');
         Route::delete('/admin/verifikasi/{registration}', [VerificationController::class, 'destroy'])->name('admin.verifikasi.destroy');
+        // Menu daftar peserta spesifik lomba
+        Route::get('/admin/verifikasi/{competition}', [VerificationController::class, 'show'])->name('admin.verifikasi.show');
+        // Aksi verifikasi
+        Route::post('/admin/verifikasi/update/{registration}', [VerificationController::class, 'updateStatus'])->name('admin.verifikasi.update');
 
         // (B) Manajemen Data Akun Peserta
         Route::get('/admin/peserta', [ParticipantController::class, 'index'])->name('admin.peserta.index');
@@ -107,6 +111,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/admin/kompetisi/{competition}/soal', [\App\Http\Controllers\Admin\QuestionController::class, 'index'])->name('admin.kompetisi.soal.index');
         Route::post('/admin/kompetisi/{competition}/soal', [\App\Http\Controllers\Admin\QuestionController::class, 'store'])->name('admin.kompetisi.soal.store');
         Route::delete('/admin/soal/{question}', [\App\Http\Controllers\Admin\QuestionController::class, 'destroy'])->name('admin.kompetisi.soal.destroy');
+
+        Route::get('/peserta/export', [App\Http\Controllers\Admin\ParticipantController::class, 'export'])->name('admin.peserta.export');
     });
 
 

@@ -88,4 +88,58 @@ class ParticipantController extends Controller
 
         return back()->with('success', '🛠️ DEBUG: Semua riwayat pendaftaran lomba, tagihan Midtrans, dan nilai CBT milik "' . $user->name . '" berhasil dihapus bersih!');
     }
+
+    public function export()
+{
+    // Mengambil semua data registrasi peserta beserta relasi tabel user dan kompetisi
+    // Sesuaikan nama model 'Registration' dengan model pendaftaran yang kamu gunakan
+    $peserta = \App\Models\Registration::with(['user', 'competition'])->get();
+
+    // Menentukan nama file yang akan diunduh dengan menyertakan tanggal hari ini
+    $namaFile = "Data_Peserta_CBT_UPC_" . date('Y-m-d') . ".csv";
+
+    // Mengatur header HTTP agar peramban mengenali respons ini sebagai file unduhan
+    $headers = [
+        "Content-type"        => "text/csv",
+        "Content-Disposition" => "attachment; filename=$namaFile",
+        "Pragma"              => "no-cache",
+        "Cache-Control"       => "must-revalidate, post-check=0, pre-check=0",
+        "Expires"             => "0"
+    ];
+
+    // Menentukan judul kolom pada baris pertama di Excel
+    $kolom = ['ID Pendaftaran', 'Nama Lengkap', 'Email', 'Asal Sekolah', 'Kompetisi', 'Status Verifikasi'];
+
+    // Membuat fungsi callback untuk menulis data baris demi baris ke dalam output
+    $callback = function() use($peserta, $kolom) {
+        $file = fopen('php://output', 'w');
+        
+        // Menuliskan baris judul kolom
+        fputcsv($file, $kolom);
+
+        // Melakukan perulangan untuk setiap peserta dan memasukkannya ke baris baru
+        foreach ($peserta as $data) {
+            $baris['ID Pendaftaran']  = $data->id;
+            $baris['Nama Lengkap']    = $data->user->name ?? '-';
+            $baris['Email']           = $data->user->email ?? '-';
+            $baris['Asal Sekolah']    = $data->user->asal_sekolah ?? '-';
+            $baris['Kompetisi']       = $data->competition->nama_lomba ?? '-';
+            $baris['Status Verifikasi'] = $data->status ?? 'pending';
+
+            fputcsv($file, array(
+                $baris['ID Pendaftaran'], 
+                $baris['Nama Lengkap'], 
+                $baris['Email'], 
+                $baris['Asal Sekolah'], 
+                $baris['Kompetisi'], 
+                $baris['Status Verifikasi']
+            ));
+        }
+
+        fclose($file);
+    };
+
+    // Mengembalikan response stream yang akan langsung memicu unduhan di peramban
+    return response()->stream($callback, 200, $headers);
+}
 }

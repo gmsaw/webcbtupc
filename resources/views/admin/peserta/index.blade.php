@@ -11,8 +11,15 @@
                 </h2>
             </div>
             
-            <div class="text-sm bg-blue-50 text-blue-700 px-4 py-2 rounded-xl font-semibold border border-blue-100 shadow-sm">
-                Total Data: {{ $peserta->total() }}
+            <div class="flex items-center gap-3 w-full sm:w-auto">
+                <div class="text-sm bg-blue-50 text-blue-700 px-4 py-2.5 rounded-xl font-semibold border border-blue-100 shadow-sm flex-1 sm:flex-none text-center">
+                    Total Data: {{ $peserta->total() }}
+                </div>
+                <a href="{{ route('admin.peserta.export') }}" class="inline-flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold py-2.5 px-4 rounded-xl shadow-sm transition-colors duration-300 flex-1 sm:flex-none">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"></path></svg>
+                    <span class="hidden sm:inline">Download CSV</span>
+                    <span class="sm:hidden">CSV</span>
+                </a>
             </div>
         </div>
     </x-slot>
