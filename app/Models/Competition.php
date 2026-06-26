@@ -19,7 +19,8 @@ class Competition extends Model implements HasMedia
         'tanggal_selesai',
         'waktu_pelaksanaan',
         'durasi_menit', 
-        'is_active'
+        'is_active',
+        'is_using_waves',
     ];
 
     // Memberitahu Laravel bahwa ini adalah tipe Data Tanggal
@@ -41,5 +42,41 @@ class Competition extends Model implements HasMedia
     public function questions()
     {
         return $this->hasMany(Question::class);
+    }
+
+    // Relasi ke tabel gelombang
+    public function waves()
+    {
+        return $this->hasMany(CompetitionWave::class);
+    }
+
+    // MAGIC FUNCTION: Mengambil harga aktif saat ini secara otomatis
+    public function getActivePriceAttribute()
+    {
+        if (!$this->is_using_waves) {
+            return $this->biaya_pendaftaran; // Kembali ke harga normal jika tidak pakai gelombang
+        }
+
+        // Cari gelombang yang tanggalnya mencakup HARI INI
+        $activeWave = $this->waves()
+            ->where('start_date', '<=', now())
+            ->where('end_date', '>=', now())
+            ->first();
+
+        // Jika ada gelombang aktif, kembalikan biayanya. Jika tidak (sudah tutup), kembalikan null
+        return $activeWave ? $activeWave->biaya : null; 
+    }
+
+    // MAGIC FUNCTION: Mengambil nama gelombang aktif
+    public function getActiveWaveNameAttribute()
+    {
+        if (!$this->is_using_waves) return 'Harga Normal';
+
+        $activeWave = $this->waves()
+            ->where('start_date', '<=', now())
+            ->where('end_date', '>=', now())
+            ->first();
+
+        return $activeWave ? $activeWave->nama_gelombang : 'Pendaftaran Tutup';
     }
 }

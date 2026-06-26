@@ -11,13 +11,13 @@
     </x-slot>
 
     <div class="py-10">
-        <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
+        <div class="max-w-5xl mx-auto sm:px-6 lg:px-8">
             <div class="bg-white rounded-3xl border border-gray-100 shadow-sm p-8">
                 
                 <form action="{{ route('admin.kompetisi.store') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
                     @csrf
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                         
                         <div class="space-y-6">
                             <div>
@@ -28,27 +28,82 @@
 
                             <div>
                                 <x-input-label for="deskripsi" value="Deskripsi Singkat" />
-                                <textarea id="deskripsi" name="deskripsi" rows="4" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-xl shadow-sm" placeholder="Tuliskan dekskripsi atau syarat lomba...">{{ old('deskripsi') }}</textarea>
+                                <textarea id="deskripsi" name="deskripsi" rows="4" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-xl shadow-sm" placeholder="Cth: UPC 2026 - Persembahan Kabinet Arunika Swakarsa...">{{ old('deskripsi') }}</textarea>
                                 <x-input-error class="mt-2" :messages="$errors->get('deskripsi')" />
                             </div>
 
-                            <div>
-                                <x-input-label for="harga_pendaftaran" value="Biaya Pendaftaran (Rp) - Ketik 0 jika gratis" />
-                                <x-text-input id="harga_pendaftaran" name="harga_pendaftaran" type="number" class="mt-1 block w-full rounded-xl" required min="0" value="{{ old('harga_pendaftaran', 0) }}" />
-                                <x-input-error class="mt-2" :messages="$errors->get('harga_pendaftaran')" />
+                            <div x-data="{ 
+                                isUsingWaves: {{ old('is_using_waves') ? 'true' : 'false' }},
+                                waves: [
+                                    { name: '', start: '', end: '', price: '' }
+                                ]
+                            }" class="p-5 bg-slate-50 rounded-2xl border border-slate-200">
+                                
+                                <div class="flex items-center justify-between mb-5">
+                                    <div>
+                                        <h3 class="text-sm font-bold text-gray-800">Sistem Biaya Pendaftaran</h3>
+                                    </div>
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" name="is_using_waves" value="1" x-model="isUsingWaves" class="sr-only peer">
+                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                        <span class="ml-2 text-xs font-bold text-gray-600">Banyak Gelombang</span>
+                                    </label>
+                                </div>
+
+                                <div x-show="!isUsingWaves" x-transition>
+                                    <x-input-label for="biaya_pendaftaran" value="Biaya Pendaftaran (Rp)" />
+                                    <x-text-input id="biaya_pendaftaran" name="biaya_pendaftaran" type="number" class="mt-1 block w-full rounded-xl" min="0" value="{{ old('biaya_pendaftaran', 0) }}" placeholder="Ketik 0 jika gratis" />
+                                    <x-input-error class="mt-2" :messages="$errors->get('biaya_pendaftaran')" />
+                                </div>
+
+                                <div x-show="isUsingWaves" x-transition style="display: none;" class="space-y-4">
+                                    <template x-for="(wave, index) in waves" :key="index">
+                                        <div class="flex flex-col gap-3 p-4 bg-white border border-indigo-100 rounded-xl shadow-sm relative">
+                                            
+                                            <button type="button" @click="waves.splice(index, 1)" x-show="waves.length > 1" class="absolute -top-2 -right-2 w-7 h-7 bg-red-100 text-red-600 hover:bg-red-600 hover:text-white rounded-full flex items-center justify-center transition shadow-sm">
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                            </button>
+
+                                            <div>
+                                                <label class="text-[11px] font-bold text-slate-500 uppercase">Nama Gelombang</label>
+                                                <input type="text" x-bind:name="`waves[${index}][nama_gelombang]`" x-model="wave.name" placeholder="Cth: Early Bird" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm text-sm py-1.5" :required="isUsingWaves">
+                                            </div>
+                                            <div class="grid grid-cols-2 gap-3">
+                                                <div>
+                                                    <label class="text-[11px] font-bold text-slate-500 uppercase">Tgl Mulai</label>
+                                                    <input type="datetime-local" x-bind:name="`waves[${index}][start_date]`" x-model="wave.start" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm text-xs py-1.5" :required="isUsingWaves">
+                                                </div>
+                                                <div>
+                                                    <label class="text-[11px] font-bold text-slate-500 uppercase">Tgl Berakhir</label>
+                                                    <input type="datetime-local" x-bind:name="`waves[${index}][end_date]`" x-model="wave.end" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm text-xs py-1.5" :required="isUsingWaves">
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label class="text-[11px] font-bold text-slate-500 uppercase">Biaya (Rp)</label>
+                                                <input type="number" x-bind:name="`waves[${index}][biaya]`" x-model="wave.price" placeholder="150000" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm text-sm py-1.5" :required="isUsingWaves">
+                                            </div>
+                                        </div>
+                                    </template>
+
+                                    <button type="button" @click="waves.push({ name: '', start: '', end: '', price: '' })" class="w-full py-2.5 bg-indigo-50 text-indigo-600 border border-indigo-200 hover:bg-indigo-600 hover:text-white rounded-xl text-xs font-bold transition shadow-sm flex items-center justify-center gap-2">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                                        Tambah Gelombang Lomba
+                                    </button>
+                                </div>
                             </div>
+
                         </div>
 
                         <div class="space-y-6">
                             
                             <div class="grid grid-cols-2 gap-4 bg-indigo-50/50 p-4 rounded-2xl border border-indigo-50">
                                 <div>
-                                    <x-input-label for="tanggal_mulai" value="Tgl Buka Daftar" />
+                                    <x-input-label for="tanggal_mulai" value="Tgl Buka Daftar Umum" />
                                     <x-text-input id="tanggal_mulai" name="tanggal_mulai" type="date" class="mt-1 block w-full rounded-xl text-sm" required value="{{ old('tanggal_mulai', \Carbon\Carbon::today()->format('Y-m-d')) }}" />
                                     <x-input-error class="mt-2" :messages="$errors->get('tanggal_mulai')" />
                                 </div>
                                 <div>
-                                    <x-input-label for="tanggal_selesai" value="Tgl Tutup Daftar" />
+                                    <x-input-label for="tanggal_selesai" value="Tgl Tutup Daftar Umum" />
                                     <x-text-input id="tanggal_selesai" name="tanggal_selesai" type="date" class="mt-1 block w-full rounded-xl text-sm" required value="{{ old('tanggal_selesai', \Carbon\Carbon::today()->addDays(30)->format('Y-m-d')) }}" />
                                     <x-input-error class="mt-2" :messages="$errors->get('tanggal_selesai')" />
                                 </div>
@@ -57,12 +112,12 @@
                             <div class="grid grid-cols-2 gap-4 bg-orange-50/50 p-4 rounded-2xl border border-orange-50">
                                 <div>
                                     <x-input-label for="waktu_pelaksanaan" value="Waktu Pelaksanaan Lomba" />
-                                    <x-text-input id="waktu_pelaksanaan" name="waktu_pelaksanaan" type="datetime-local" class="mt-1 block w-full rounded-xl text-sm" required value="{{ old('waktu_pelaksanaan', isset($competition) && $competition->waktu_pelaksanaan ? $competition->waktu_pelaksanaan->format('Y-m-d\TH:i') : '') }}" />
+                                    <x-text-input id="waktu_pelaksanaan" name="waktu_pelaksanaan" type="datetime-local" class="mt-1 block w-full rounded-xl text-sm" required value="{{ old('waktu_pelaksanaan') }}" />
                                     <x-input-error class="mt-2" :messages="$errors->get('waktu_pelaksanaan')" />
                                 </div>
                                 <div>
                                     <x-input-label for="durasi_menit" value="Durasi Pengerjaan (Menit)" />
-                                    <x-text-input id="durasi_menit" name="durasi_menit" type="number" class="mt-1 block w-full rounded-xl text-sm" required min="1" value="{{ old('durasi_menit', isset($competition) ? $competition->durasi_menit : 120) }}" />
+                                    <x-text-input id="durasi_menit" name="durasi_menit" type="number" class="mt-1 block w-full rounded-xl text-sm" required min="1" value="{{ old('durasi_menit', 120) }}" />
                                     <x-input-error class="mt-2" :messages="$errors->get('durasi_menit')" />
                                 </div>
                             </div>
@@ -115,7 +170,7 @@
                         const preview = document.getElementById('banner-preview');
                         preview.src = src;
                         preview.classList.remove('hidden');
-                        preview.classList.add('opacity-80'); // Sedikit transparan agar tombol tetap terlihat jelas
+                        preview.classList.add('opacity-80'); 
                     })
                 },
                 fileToDataUrl(event, callback) {

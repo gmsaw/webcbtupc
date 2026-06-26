@@ -15,37 +15,101 @@
     <script type="text/javascript" id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
     
     <style>
-        /* Sembunyikan scrollbar agar tampilan lebih bersih (Opsional) */
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        /* Mencegah user menyeleksi dan menyalin (copy) teks soal */
         .prevent-select {
-            -webkit-user-select: none; /* Safari */
-            -ms-user-select: none; /* IE 10 and IE 11 */
-            user-select: none; /* Standard syntax */
+            -webkit-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
         }
     </style>
 </head>
-<body class="font-sans antialiased bg-slate-50 min-h-screen flex flex-col selection:bg-blue-200 selection:text-blue-900 prevent-select" x-data="cbtSystem()" :class="{'overflow-hidden': mobileNavOpen || showWarningModal}">
+<body class="font-sans antialiased bg-slate-50 min-h-screen flex flex-col selection:bg-blue-200 selection:text-blue-900 prevent-select" x-data="cbtSystem()" :class="{'overflow-hidden': mobileNavOpen || showWarningModal || !isExamStarted || showFinishModal}">
+
+    <div x-show="!isExamStarted" class="fixed inset-0 z-[200] bg-slate-900 flex flex-col items-center justify-center p-6 text-center">
+        <div class="max-w-xl bg-white p-10 rounded-[2rem] shadow-2xl">
+            <div class="w-20 h-20 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
+            </div>
+            <h2 class="text-3xl font-black text-slate-900 mb-4">Siap Memulai Ujian?</h2>
+            <p class="text-slate-600 mb-8 font-medium leading-relaxed">
+                Ujian ini mewajibkan mode <b>Layar Penuh (Full Screen)</b>. Jangan keluar dari mode layar penuh atau berpindah aplikasi selama ujian berlangsung karena akan memicu sistem pelanggaran otomatis. Waktu akan mulai berjalan setelah Anda menekan tombol di bawah ini.
+            </p>
+            <button @click="startExam()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-xl font-black text-lg shadow-lg shadow-blue-600/30 transition-all active:scale-95 flex items-center justify-center gap-3">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                Masuk Layar Penuh & Mulai
+            </button>
+        </div>
+    </div>
+
+    <div x-show="showFinishModal" style="display: none;" class="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm">
+        <div class="bg-white rounded-3xl p-8 max-w-md w-full text-center shadow-2xl transform transition-all border-t-8 border-blue-600">
+            <div class="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
+                <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            </div>
+            
+            <h2 class="text-2xl font-black text-slate-900 mb-2">Akhiri Ujian?</h2>
+            
+            <template x-if="unansweredCount > 0">
+                <div class="bg-red-50 border border-red-200 text-red-700 p-5 rounded-2xl mb-6 shadow-sm">
+                    <p class="font-bold text-lg mb-1 flex items-center justify-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                        PERINGATAN!
+                    </p>
+                    <p class="text-sm">Masih ada <span class="font-black text-xl mx-1" x-text="unansweredCount"></span> soal yang <b class="underline">BELUM DIJAWAB</b>. Yakin ingin menyimpan jawaban saat ini?</p>
+                </div>
+            </template>
+            
+            <template x-if="unansweredCount === 0">
+                <p class="text-slate-600 mb-8 font-medium">Luar biasa! Anda telah menjawab seluruh soal. Apakah Anda yakin ingin menyimpan jawaban dan mengakhiri ujian sekarang?</p>
+            </template>
+
+            <div class="flex gap-4">
+                <button @click="showFinishModal = false" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3.5 rounded-xl transition-all active:scale-95 border border-slate-200">
+                    Batal
+                </button>
+                <button @click="autoSubmit()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl transition-all active:scale-95 shadow-lg shadow-blue-600/30">
+                    Ya, Kumpulkan
+                </button>
+            </div>
+        </div>
+    </div>
 
     <div x-show="showWarningModal" style="display: none;" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-red-900/95 backdrop-blur-md">
         <div class="bg-white rounded-3xl p-8 max-w-lg w-full text-center shadow-2xl transform transition-all border-4 border-red-500">
-            <div class="w-24 h-24 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
-                <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+            <div class="w-24 h-24 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner relative">
+                <svg x-show="isFrozen" class="w-24 h-24 absolute inset-0 text-red-300 animate-ping opacity-50" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle></svg>
+                <svg class="w-12 h-12 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
             </div>
+            
             <h2 class="text-2xl font-black text-gray-900 mb-3">Peringatan Pelanggaran!</h2>
             <p class="text-gray-600 mb-6 font-medium text-sm leading-relaxed">
-                Sistem mendeteksi Anda meninggalkan halaman ujian (berpindah tab, meminimize browser, atau membuka aplikasi lain). Tindakan ini dilarang keras selama CBT berlangsung.
+                Sistem mendeteksi Anda meninggalkan halaman ujian atau keluar dari Mode Layar Penuh. Tindakan ini dilarang keras.
             </p>
             
-            <div class="bg-red-50 border border-red-200 text-red-700 p-4 rounded-xl font-bold mb-8">
+            <div class="bg-red-50 border border-red-200 text-red-700 p-4 rounded-xl font-bold mb-6">
                 Ini adalah peringatan ke-<span x-text="violationCount" class="text-xl"></span> dari maksimal 3 kali.
                 <div class="text-xs font-medium mt-1.5 text-red-500">Jika mencapai batas maksimal, ujian Anda akan <span class="font-bold underline">dihentikan paksa</span>.</div>
             </div>
 
-            <button @click="showWarningModal = false" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-red-600/30 transition-all active:scale-95 flex items-center justify-center gap-2">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                Saya Mengerti, Kembali ke Ujian
+            <button @click="reenterFullscreenAndResume()" 
+                    :disabled="isFrozen"
+                    :class="isFrozen ? 'bg-slate-300 text-slate-500 cursor-not-allowed border-b-4 border-slate-400' : 'bg-red-600 hover:bg-red-700 text-white shadow-lg shadow-red-600/30 active:scale-95'"
+                    class="w-full font-bold py-4 rounded-xl transition-all flex items-center justify-center gap-2">
+                
+                <template x-if="isFrozen">
+                    <span class="flex items-center gap-2">
+                        <svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                        Menunggu hukuman: <span x-text="freezeTimer" class="text-lg text-slate-700"></span> detik
+                    </span>
+                </template>
+                
+                <template x-if="!isFrozen">
+                    <span class="flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
+                        Kembali Layar Penuh & Lanjut
+                    </span>
+                </template>
             </button>
         </div>
     </div>
@@ -219,7 +283,11 @@
     <script>
         function cbtSystem() {
             return {
+                isExamStarted: false, 
+                isSubmitting: false,
+                examInterval: null,
                 timeRemaining: {{ $competition->durasi_menit * 60 }}, 
+                
                 activeQuestionIndex: 0,
                 mobileNavOpen: false, 
                 answers: @json($savedAnswers ?? new \stdClass()), 
@@ -229,39 +297,29 @@
                 syncStatus: 'idle',
                 saveTimeout: null,
                 
-                // Variabel untuk Anti-Cheat
+                // Variabel untuk Modals & Pelanggaran
                 violationCount: 0,
                 showWarningModal: false,
+                showFinishModal: false,
+                unansweredCount: 0,
+                isFrozen: false,
+                freezeTimer: 0,
 
                 init() {
                     window.addEventListener('beforeunload', this.preventClose);
 
-                    // Sistem Deteksi Pindah Tab (Anti-Cheat)
+                    // Sistem Deteksi Pindah Tab & Keluar Full Screen (Anti-Cheat)
                     document.addEventListener("visibilitychange", () => {
-                        // Jika tab di-minimize atau pindah ke tab/aplikasi lain
-                        if (document.hidden) {
-                            this.violationCount++;
-                            
-                            // Jika pelanggaran >= 3, otomatis hentikan ujian
-                            if (this.violationCount >= 3) {
-                                alert('PELANGGARAN FATAL: Anda telah meninggalkan halaman ujian sebanyak 3 kali. Ujian dihentikan paksa dan jawaban Anda terkirim secara otomatis.');
-                                this.autoSubmit();
-                            } else {
-                                // Tampilkan modal peringatan
-                                this.showWarningModal = true;
-                            }
+                        this.handleViolation(document.hidden);
+                    });
+                    
+                    document.addEventListener("fullscreenchange", () => {
+                        if (!document.fullscreenElement && this.isExamStarted && !this.isSubmitting && !this.showFinishModal) {
+                            this.handleViolation(true);
                         }
                     });
 
-                    // Timer Ujian
-                    setInterval(() => {
-                        if (this.timeRemaining > 0) {
-                            this.timeRemaining--;
-                        } else {
-                            this.autoSubmit();
-                        }
-                    }, 1000);
-
+                    // Trigger render MathJax jika soal berganti
                     this.$watch('activeQuestionIndex', () => {
                         this.$nextTick(() => {
                             if (window.MathJax) {
@@ -281,11 +339,83 @@
                         }, 2000);
                     }, { deep: true });
                     
-                    // Anti Klik Kanan (Opsional)
                     document.addEventListener('contextmenu', event => event.preventDefault());
                 },
 
+                // Fungsi Memulai Ujian (Fix MathJax Awal & Layar Penuh)
+                startExam() {
+                    let elem = document.documentElement;
+                    if (elem.requestFullscreen) {
+                        elem.requestFullscreen();
+                    } else if (elem.webkitRequestFullscreen) { /* Safari */
+                        elem.webkitRequestFullscreen();
+                    } else if (elem.msRequestFullscreen) { /* IE11 */
+                        elem.msRequestFullscreen();
+                    }
+
+                    this.isExamStarted = true;
+
+                    // FIX: Paksa MathJax me-render setelah ujian terlihat (Start Screen hilang)
+                    this.$nextTick(() => {
+                        if (window.MathJax) {
+                            MathJax.typesetClear();
+                            MathJax.typesetPromise();
+                        }
+                    });
+
+                    this.examInterval = setInterval(() => {
+                        if (this.timeRemaining > 0) {
+                            this.timeRemaining--;
+                        } else {
+                            this.autoSubmit();
+                        }
+                    }, 1000);
+                },
+
+                // Logika Pelanggaran
+                handleViolation(isViolating) {
+                    if (isViolating && this.isExamStarted && !this.isSubmitting) {
+                        this.violationCount++;
+                        if (this.violationCount >= 3) {
+                            alert('PELANGGARAN FATAL: Anda telah melanggar aturan sebanyak 3 kali. Ujian dihentikan paksa dan jawaban Anda terkirim secara otomatis.');
+                            this.autoSubmit();
+                        } else {
+                            this.showWarningModal = true;
+                            this.startFreezePenalty();
+                        }
+                    }
+                },
+
+                // Kembali ke Fullscreen dari Peringatan
+                reenterFullscreenAndResume() {
+                    if(!this.isFrozen) {
+                        this.showWarningModal = false;
+                        let elem = document.documentElement;
+                        if (!document.fullscreenElement) {
+                            if (elem.requestFullscreen) elem.requestFullscreen();
+                            else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen();
+                            else if (elem.msRequestFullscreen) elem.msRequestFullscreen();
+                        }
+                    }
+                },
+
+                startFreezePenalty() {
+                    this.isFrozen = true;
+                    this.freezeTimer = 15; 
+                    
+                    let penaltyInterval = setInterval(() => {
+                        if (this.freezeTimer > 0) {
+                            this.freezeTimer--;
+                        } else {
+                            clearInterval(penaltyInterval);
+                            this.isFrozen = false; 
+                        }
+                    }, 1000);
+                },
+
                 sendAutoSave(answersData) {
+                    if(!this.isExamStarted) return;
+                    
                     fetch("{{ route('user.ujian.autosave', $registration->id) }}", {
                         method: "POST",
                         headers: {
@@ -329,17 +459,22 @@
                     if (this.activeQuestionIndex > 0) this.activeQuestionIndex--;
                 },
 
+                // Menampilkan Modal Kumpulkan Ujian
                 confirmFinish() {
-                    let unanswered = this.questions.length - Object.keys(this.answers).length;
-                    let msg = unanswered > 0 
-                        ? `PERINGATAN: Anda masih memiliki ${unanswered} soal yang KOSONG!\n\nYakin ingin MENGAKHIRI UJIAN dan menyimpan jawaban saat ini?`
-                        : `Anda sudah mengisi semua soal.\nYakin ingin MENGAKHIRI UJIAN sekarang?`;
-                    
-                    if (confirm(msg)) this.autoSubmit();
+                    this.unansweredCount = this.questions.length - Object.keys(this.answers).length;
+                    this.showFinishModal = true;
                 },
 
                 autoSubmit() {
+                    this.isSubmitting = true; 
                     window.removeEventListener('beforeunload', this.preventClose);
+                    clearInterval(this.examInterval);
+                    
+                    if (document.fullscreenElement) {
+                        if (document.exitFullscreen) document.exitFullscreen();
+                        else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+                        else if (document.msExitFullscreen) document.msExitFullscreen();
+                    }
                     
                     let payload = {};
                     for (let i = 0; i < this.questions.length; i++) {
