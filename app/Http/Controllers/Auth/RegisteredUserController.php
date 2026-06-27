@@ -30,15 +30,17 @@ class RegisteredUserController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
+        // 1. Validasi dengan foto_profil
         $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
+            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:' . User::class],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
             'asal_sekolah' => ['required', 'string', 'max:255'],
             'no_wa' => ['required', 'string', 'max:20'],
-            'kartu_pelajar' => ['required', 'image', 'mimes:jpeg,png,jpg', 'max:2048'], // Maksimal 2MB
+            'foto_profil' => ['required', 'image', 'mimes:jpeg,png,jpg,webp', 'max:5120'], // Wajib, Maksimal 5MB
         ]);
 
+        // 2. Buat User Baru
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
@@ -48,9 +50,10 @@ class RegisteredUserController extends Controller
             'status_verifikasi' => 'pending',
         ]);
 
-        // Proses upload kartu pelajar menggunakan Spatie Media Library
-        if ($request->hasFile('kartu_pelajar')) {
-            $user->addMediaFromRequest('kartu_pelajar')->toMediaCollection('kartu_pelajar');
+        // 3. Simpan Foto Profil & Jalankan Kompresi Otomatis
+        if ($request->hasFile('foto_profil')) {
+            $user->addMediaFromRequest('foto_profil')
+                 ->toMediaCollection('profile_picture'); // Sesuai dengan collection di model User
         }
 
         event(new Registered($user));
