@@ -128,42 +128,61 @@ class CbtController extends Controller
         // Simpan sisa jawaban terakhir yang belum sempat tersave oleh ajax
         $this->autosave($request, $registration);
 
-        // MULAI KALKULASI NILAI
-        $dbQuestions = $registration->competition->questions->keyBy('id');
-        $allUserAnswers = ExamAnswer::where('registration_id', $registration->id)->get();
+        // ==========================================
+        // MULAI KALKULASI NILAI (BENAR, SALAH, KOSONG)
+        // ==========================================
+        $competition = $registration->competition;
+        $dbQuestions = $competition->questions->keyBy('id');
+        
+        // Ambil jawaban user dan jadikan question_id sebagai key Array
+        $allUserAnswers = ExamAnswer::where('registration_id', $registration->id)->get()->keyBy('question_id');
 
-        $score = 0;
-        $totalBobot = $dbQuestions->sum('bobot_nilai');
+        // Aturan Nilai dari Admin
+        $skorBenar = $competition->nilai_benar ?? 1;
+        $skorSalah = $competition->nilai_salah ?? 0;
+        $skorKosong = $competition->nilai_kosong ?? 0;
 
-        // Cegah error dibagi 0
-        if ($totalBobot == 0) $totalBobot = 1; 
+        $totalScore = 0;
 
-        // Cocokkan jawaban peserta dengan database
-        foreach ($allUserAnswers as $userAns) {
-            if (isset($dbQuestions[$userAns->question_id])) {
-                $q = $dbQuestions[$userAns->question_id];
+        // Loop SEMUA soal yang ada di lomba ini
+        foreach ($dbQuestions as $qId => $q) {
+            
+            // CEK 1: Apakah peserta pernah menekan jawaban dan jawabannya tidak kosong?
+            if (isset($allUserAnswers[$qId]) && !empty($allUserAnswers[$qId]->answer_selected)) {
                 
+                $userAns = $allUserAnswers[$qId];
                 $isCorrect = ($q->jawaban_benar === $userAns->answer_selected);
                 
-                // Simpan status benar/salah ke tabel (Sangat berguna untuk Analisis Butir Soal/Statistik)
+                // Update rekam jejak benar/salah ke database
                 $userAns->update(['is_correct' => $isCorrect]);
 
                 if ($isCorrect) {
-                    $score += $q->bobot_nilai;
+                    // BENAR: Tambahkan skor benar (dikali bobot soal jika Anda menggunakan bobot per soal)
+                    $totalScore += ($skorBenar * $q->bobot_nilai);
+                } else {
+                    // SALAH: Tambahkan skor salah (biasanya minus, cth: -1)
+                    $totalScore += ($skorSalah * $q->bobot_nilai);
                 }
+
+            } else {
+                // CEK 2: KOSONG (Peserta tidak memilih jawaban apa pun)
+                $totalScore += ($skorKosong * $q->bobot_nilai);
+                
+                // Opsional: Catat ke database bahwa soal ini dilewati/kosong
+                ExamAnswer::updateOrCreate(
+                    ['registration_id' => $registration->id, 'question_id' => $qId],
+                    ['answer_selected' => null, 'is_correct' => null] // null menandakan tidak dijawab
+                );
             }
         }
 
-        // Hitung skala 1-100 (Bisa disesuaikan dengan rumus HIMAFI)
-        $finalScore = round(($score / $totalBobot) * 100, 2);
-
         // Simpan nilai akhir ke tabel exam_results
         $registration->examResult()->update([
-            'score' => $finalScore,
+            'score' => $totalScore,
             'end_time' => now(),
             'status' => 'finished'
         ]);
 
-        return redirect()->route('dashboard')->with('success', 'Ujian Selesai! Anda mendapatkan skor: ' . $finalScore);
+        return redirect()->route('dashboard')->with('success', 'Ujian Selesai! Anda mendapatkan skor akhir: ' . $totalScore);
     }
 }

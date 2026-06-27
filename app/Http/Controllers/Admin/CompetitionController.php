@@ -39,6 +39,9 @@ class CompetitionController extends Controller
             'durasi_menit' => 'required|integer|min:1',
             'gambar_lomba' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
             'is_using_waves' => 'nullable|boolean',
+            'nilai_benar' => 'required|numeric',
+            'nilai_salah' => 'required|numeric',
+            'nilai_kosong' => 'required|numeric',
         ];
 
         // Validasi conditional untuk harga dan waves
@@ -72,6 +75,9 @@ class CompetitionController extends Controller
                 'durasi_menit' => $request->durasi_menit,
                 'is_active' => $request->has('is_active') ? true : false,
                 'is_using_waves' => $isUsingWaves,
+                'nilai_benar' => $request->nilai_benar,
+                'nilai_salah' => $request->nilai_salah,
+                'nilai_kosong' => $request->nilai_kosong,
             ]);
 
             // Simpan waves jika menggunakan sistem gelombang
@@ -143,6 +149,9 @@ class CompetitionController extends Controller
             'durasi_menit' => 'required|integer|min:1',
             'gambar_lomba' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
             'is_using_waves' => 'nullable|boolean',
+            'nilai_benar' => 'required|numeric',
+            'nilai_salah' => 'required|numeric',
+            'nilai_kosong' => 'required|numeric',
         ];
 
         // Validasi conditional untuk harga dan waves
@@ -176,6 +185,9 @@ class CompetitionController extends Controller
                 'durasi_menit' => $request->durasi_menit,
                 'is_active' => $request->has('is_active') ? true : false,
                 'is_using_waves' => $isUsingWaves,
+                'nilai_benar' => $request->nilai_benar,
+                'nilai_salah' => $request->nilai_salah,
+                'nilai_kosong' => $request->nilai_kosong,
             ]);
 
             // Update waves jika menggunakan sistem gelombang

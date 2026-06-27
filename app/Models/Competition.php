@@ -21,6 +21,9 @@ class Competition extends Model implements HasMedia
         'durasi_menit', 
         'is_active',
         'is_using_waves',
+        'nilai_benar', 
+        'nilai_salah', 
+        'nilai_kosong'
     ];
 
     // Memberitahu Laravel bahwa ini adalah tipe Data Tanggal

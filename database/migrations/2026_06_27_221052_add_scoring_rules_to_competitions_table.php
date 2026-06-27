@@ -12,7 +12,9 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('competitions', function (Blueprint $table) {
-            //
+            $table->decimal('nilai_benar', 5, 2)->default(1)->after('durasi_menit');
+            $table->decimal('nilai_salah', 5, 2)->default(0)->after('nilai_benar');
+            $table->decimal('nilai_kosong', 5, 2)->default(0)->after('nilai_salah');
         });
     }
 
@@ -22,7 +24,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('competitions', function (Blueprint $table) {
-            //
+            $table->dropColumn(['nilai_benar', 'nilai_salah', 'nilai_kosong']);
         });
     }
 };
