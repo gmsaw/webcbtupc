@@ -113,6 +113,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('/admin/soal/{question}', [\App\Http\Controllers\Admin\QuestionController::class, 'destroy'])->name('admin.kompetisi.soal.destroy');
 
         Route::get('/peserta/export', [App\Http\Controllers\Admin\ParticipantController::class, 'export'])->name('admin.peserta.export');
+
+        // Download CSV spesifik per lomba
+        Route::get('/admin/kompetisi/{competition}/export', [App\Http\Controllers\Admin\ParticipantController::class, 'exportByCompetition'])->name('admin.kompetisi.export');
+
+        // Lihat Ranking per lomba
+        Route::get('/admin/kompetisi/{competition}/ranking', [App\Http\Controllers\Admin\ParticipantController::class, 'ranking'])->name('admin.kompetisi.ranking');
     });
 
 

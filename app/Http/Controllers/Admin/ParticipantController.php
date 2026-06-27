@@ -90,56 +90,109 @@ class ParticipantController extends Controller
     }
 
     public function export()
-{
-    // Mengambil semua data registrasi peserta beserta relasi tabel user dan kompetisi
-    // Sesuaikan nama model 'Registration' dengan model pendaftaran yang kamu gunakan
-    $peserta = \App\Models\Registration::with(['user', 'competition'])->get();
+    {
+        // Mengambil semua data registrasi peserta beserta relasi tabel user dan kompetisi
+        // Sesuaikan nama model 'Registration' dengan model pendaftaran yang kamu gunakan
+        $peserta = \App\Models\Registration::with(['user', 'competition'])->get();
 
-    // Menentukan nama file yang akan diunduh dengan menyertakan tanggal hari ini
-    $namaFile = "Data_Peserta_CBT_UPC_" . date('Y-m-d') . ".csv";
+        // Menentukan nama file yang akan diunduh dengan menyertakan tanggal hari ini
+        $namaFile = "Data_Peserta_CBT_UPC_" . date('Y-m-d') . ".csv";
 
-    // Mengatur header HTTP agar peramban mengenali respons ini sebagai file unduhan
-    $headers = [
-        "Content-type"        => "text/csv",
-        "Content-Disposition" => "attachment; filename=$namaFile",
-        "Pragma"              => "no-cache",
-        "Cache-Control"       => "must-revalidate, post-check=0, pre-check=0",
-        "Expires"             => "0"
-    ];
+        // Mengatur header HTTP agar peramban mengenali respons ini sebagai file unduhan
+        $headers = [
+            "Content-type"        => "text/csv",
+            "Content-Disposition" => "attachment; filename=$namaFile",
+            "Pragma"              => "no-cache",
+            "Cache-Control"       => "must-revalidate, post-check=0, pre-check=0",
+            "Expires"             => "0"
+        ];
 
-    // Menentukan judul kolom pada baris pertama di Excel
-    $kolom = ['ID Pendaftaran', 'Nama Lengkap', 'Email', 'Asal Sekolah', 'Kompetisi', 'Status Verifikasi'];
+        // Menentukan judul kolom pada baris pertama di Excel
+        $kolom = ['ID Pendaftaran', 'Nama Lengkap', 'Email', 'Asal Sekolah', 'Kompetisi', 'Status Verifikasi'];
 
-    // Membuat fungsi callback untuk menulis data baris demi baris ke dalam output
-    $callback = function() use($peserta, $kolom) {
-        $file = fopen('php://output', 'w');
-        
-        // Menuliskan baris judul kolom
-        fputcsv($file, $kolom);
+        // Membuat fungsi callback untuk menulis data baris demi baris ke dalam output
+        $callback = function() use($peserta, $kolom) {
+            $file = fopen('php://output', 'w');
+            
+            // Menuliskan baris judul kolom
+            fputcsv($file, $kolom);
 
-        // Melakukan perulangan untuk setiap peserta dan memasukkannya ke baris baru
-        foreach ($peserta as $data) {
-            $baris['ID Pendaftaran']  = $data->id;
-            $baris['Nama Lengkap']    = $data->user->name ?? '-';
-            $baris['Email']           = $data->user->email ?? '-';
-            $baris['Asal Sekolah']    = $data->user->asal_sekolah ?? '-';
-            $baris['Kompetisi']       = $data->competition->nama_lomba ?? '-';
-            $baris['Status Verifikasi'] = $data->status ?? 'pending';
+            // Melakukan perulangan untuk setiap peserta dan memasukkannya ke baris baru
+            foreach ($peserta as $data) {
+                $baris['ID Pendaftaran']  = $data->id;
+                $baris['Nama Lengkap']    = $data->user->name ?? '-';
+                $baris['Email']           = $data->user->email ?? '-';
+                $baris['Asal Sekolah']    = $data->user->asal_sekolah ?? '-';
+                $baris['Kompetisi']       = $data->competition->nama_lomba ?? '-';
+                $baris['Status Verifikasi'] = $data->status ?? 'pending';
 
-            fputcsv($file, array(
-                $baris['ID Pendaftaran'], 
-                $baris['Nama Lengkap'], 
-                $baris['Email'], 
-                $baris['Asal Sekolah'], 
-                $baris['Kompetisi'], 
-                $baris['Status Verifikasi']
-            ));
-        }
+                fputcsv($file, array(
+                    $baris['ID Pendaftaran'], 
+                    $baris['Nama Lengkap'], 
+                    $baris['Email'], 
+                    $baris['Asal Sekolah'], 
+                    $baris['Kompetisi'], 
+                    $baris['Status Verifikasi']
+                ));
+            }
 
-        fclose($file);
-    };
+            fclose($file);
+        };
 
-    // Mengembalikan response stream yang akan langsung memicu unduhan di peramban
-    return response()->stream($callback, 200, $headers);
-}
+        // Mengembalikan response stream yang akan langsung memicu unduhan di peramban
+        return response()->stream($callback, 200, $headers);
+    }
+
+    public function exportByCompetition(\App\Models\Competition $competition)
+    {
+        // Mengambil pendaftar khusus untuk lomba ini
+        $registrations = \App\Models\Registration::where('competition_id', $competition->id)
+            ->with(['user'])
+            ->get();
+
+        // Format nama file agar rapi (spasi diganti underscore)
+        $namaFile = "Data_Peserta_" . str_replace(' ', '_', $competition->nama_lomba) . "_" . date('Y-m-d') . ".csv";
+
+        $headers = [
+            "Content-type"        => "text/csv",
+            "Content-Disposition" => "attachment; filename=$namaFile",
+            "Pragma"              => "no-cache",
+            "Cache-Control"       => "must-revalidate, post-check=0, pre-check=0",
+            "Expires"             => "0"
+        ];
+
+        // Tambahkan kolom Nilai Akhir
+        $columns = ['ID Pendaftaran', 'Nama Lengkap', 'Email', 'Asal Sekolah', 'Status Verifikasi', 'Nilai Akhir'];
+
+        $callback = function() use ($registrations, $columns) {
+            $file = fopen('php://output', 'w');
+            fputcsv($file, $columns);
+
+            foreach ($registrations as $data) {
+                fputcsv($file, [
+                    $data->id,
+                    $data->user->name ?? '-',
+                    $data->user->email ?? '-',
+                    $data->user->asal_sekolah ?? '-',
+                    $data->status_pendaftaran ?? 'pending',
+                    $data->nilai ?? 0 // Ganti 'nilai' jika nama kolom skor Anda berbeda di tabel registrations
+                ]);
+            }
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+    public function ranking(\App\Models\Competition $competition)
+    {
+        // Ambil hanya peserta yang diverifikasi dan urutkan berdasarkan nilai tertinggi
+        $registrations = \App\Models\Registration::where('competition_id', $competition->id)
+            ->where('status_pendaftaran', 'verified')
+            ->with('user')
+            ->orderBy('nilai_cbt', 'desc') // Ganti 'nilai' jika nama kolom skor di database Anda berbeda
+            ->get();
+
+        return view('admin.kompetisi.ranking', compact('competition', 'registrations'));
+    }
 }
