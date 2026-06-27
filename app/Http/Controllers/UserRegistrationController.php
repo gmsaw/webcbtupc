@@ -8,6 +8,7 @@ use App\Models\Competition;
 use App\Models\Registration;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 use Carbon\Carbon;
 
 class UserRegistrationController extends Controller
@@ -25,19 +26,25 @@ class UserRegistrationController extends Controller
         $newComp = Competition::findOrFail($request->competition_id);
         $today = Carbon::today();
 
-        // 2. Cek Masa Pendaftaran
+        // 2. Cek Masa Pendaftaran Umum
         $isDateValid = $newComp->tanggal_mulai && $newComp->tanggal_selesai && $today->between($newComp->tanggal_mulai, $newComp->tanggal_selesai);
         if (!$newComp->is_active || !$isDateValid) {
             return back()->with('error', 'Pendaftaran untuk kompetisi ini sedang ditutup atau melewati tenggat waktu.');
         }
 
-        // 3. Cek Duplikasi (Apakah sudah pernah mendaftar?)
+        // 3. Cek Harga Gelombang Aktif
+        $activePrice = $newComp->active_price;
+        if (is_null($activePrice)) {
+            return back()->with('error', 'Maaf, belum ada gelombang pendaftaran yang aktif saat ini.');
+        }
+
+        // 4. Cek Duplikasi (Apakah sudah pernah mendaftar?)
         if (Registration::where('user_id', $user->id)->where('competition_id', $newComp->id)->exists()) {
             return back()->with('error', 'Anda sudah terdaftar di kompetisi ini.');
         }
 
-        // 4. Cek Validasi Pembayaran (Jika Berbayar)
-        if ($newComp->harga_pendaftaran > 0) {
+        // 5. Cek Validasi Pembayaran (Jika Berbayar)
+        if ($activePrice > 0) {
             $request->validate(
                 ['metode_pembayaran' => 'required|in:manual,gateway'],
                 ['metode_pembayaran.required' => 'Pilih metode pembayaran terlebih dahulu.']
@@ -52,7 +59,7 @@ class UserRegistrationController extends Controller
             }
         }
 
-        // 5. Cek Bentrok Jadwal Pelaksanaan Ujian
+        // 6. Cek Bentrok Jadwal Pelaksanaan Ujian
         if ($newComp->waktu_pelaksanaan && $newComp->durasi_menit) {
             $newStart = Carbon::parse($newComp->waktu_pelaksanaan);
             $newEnd = $newStart->copy()->addMinutes($newComp->durasi_menit);
@@ -75,29 +82,44 @@ class UserRegistrationController extends Controller
             }
         }
 
-        // 6. Buat Order ID Unik & Tentukan Status Awal
-        $orderId = 'REG-' . time() . '-' . $user->id;
-        
-        // Jika lomba gratis, langsung anggap lunas dan terverifikasi
-        $statusPembayaran = ($newComp->harga_pendaftaran == 0) ? 'paid' : 'unpaid';
-        $statusPendaftaran = ($newComp->harga_pendaftaran == 0) ? 'verified' : 'pending';
+        // 7. Tentukan Status Awal
+        $statusPendaftaran = ($activePrice == 0) ? 'verified' : 'pending';
+        $statusPembayaran  = ($activePrice == 0) ? 'paid' : 'unpaid';
+        $orderId = 'UPC-' . strtoupper(Str::random(6)) . '-' . time();
 
-        // 7. Simpan Data Pendaftaran ke Database
+        // ====================================================================
+        // EKSEKUSI PEMISAHAN TABEL (Registrasi, Payment, dan Ujian)
+        // ====================================================================
+
+        // A. Simpan Data Induk Pendaftaran (Tabel registrations)
         $registration = Registration::create([
-            'order_id' => $orderId,
             'user_id' => $user->id,
             'competition_id' => $newComp->id,
             'status_pendaftaran' => $statusPendaftaran,
-            'metode_pembayaran' => $request->metode_pembayaran ?? 'manual',
-            // Jika Anda menggunakan kolom status_pembayaran di tabel, buka komentar di bawah ini:
-            // 'status_pembayaran' => $statusPembayaran, 
         ]);
 
-        // 8. Eksekusi Pembayaran Berdasarkan Metode
-        if ($newComp->harga_pendaftaran > 0) {
+        // B. Simpan Data Tagihan Keuangan (Tabel payments)
+        $payment = $registration->payment()->create([
+            'order_id' => $orderId,
+            'amount' => $activePrice,
+            'status' => $statusPembayaran,
+            'payment_type' => $request->metode_pembayaran ?? 'free',
+        ]);
+
+        // C. Inisialisasi Lembar Hasil Ujian (Tabel exam_results)
+        $registration->examResult()->create([
+            'status' => 'not_started',
+            'violation_count' => 0
+        ]);
+
+        // ====================================================================
+        // EKSEKUSI PEMBAYARAN (MANUAL vs GATEWAY)
+        // ====================================================================
+
+        if ($activePrice > 0) {
             
             if ($request->metode_pembayaran === 'manual') {
-                // Simpan Bukti Transfer menggunakan Spatie Media Library
+                // Simpan Bukti Transfer menggunakan Spatie Media Library di relasi registration
                 if ($request->hasFile('bukti_pembayaran')) {
                     $registration->addMediaFromRequest('bukti_pembayaran')->toMediaCollection('bukti_pembayaran_lomba');
                 }
@@ -113,7 +135,7 @@ class UserRegistrationController extends Controller
                 $params = [
                     'transaction_details' => [
                         'order_id' => $orderId,
-                        'gross_amount' => (int) $newComp->harga_pendaftaran,
+                        'gross_amount' => (int) $activePrice,
                     ],
                     'customer_details' => [
                         'first_name' => $user->name,
@@ -122,7 +144,7 @@ class UserRegistrationController extends Controller
                     'item_details' => [
                         [
                             'id' => 'COMP-'.$newComp->id,
-                            'price' => (int) $newComp->harga_pendaftaran,
+                            'price' => (int) $activePrice,
                             'quantity' => 1,
                             'name' => substr('Tiket: '.$newComp->nama_lomba, 0, 50)
                         ]
@@ -132,15 +154,15 @@ class UserRegistrationController extends Controller
                 // Request Token ke Midtrans
                 $snapToken = Snap::getSnapToken($params);
                 
-                // Simpan token ke database
-                $registration->update(['snap_token' => $snapToken]);
+                // Simpan token ke tabel payments
+                $payment->update(['snap_token' => $snapToken]);
 
                 // Arahkan ke halaman khusus pop-up Midtrans
                 return redirect()->route('user.kompetisi.checkout', $registration->id);
             }
         }
 
-        // Jika gratis
+        // Jika harga lomba gratis
         return back()->with('success', 'Berhasil mendaftar kompetisi secara gratis! Pendaftaran Anda otomatis divalidasi oleh sistem.');
     }
 }

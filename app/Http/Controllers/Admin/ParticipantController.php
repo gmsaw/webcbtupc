@@ -4,11 +4,17 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Models\Registration;
+use App\Models\Competition;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
 class ParticipantController extends Controller
 {
+    // ====================================================================
+    // MANAJEMEN AKUN PESERTA
+    // ====================================================================
+
     // Menampilkan semua peserta
     public function index(Request $request)
     {
@@ -71,10 +77,10 @@ class ParticipantController extends Controller
     public function resetRegistrations(User $user)
     {
         // 1. Ambil semua pendaftaran lomba milik user ini
-        $registrations = \App\Models\Registration::where('user_id', $user->id)->get();
+        $registrations = Registration::where('user_id', $user->id)->get();
         
         foreach ($registrations as $reg) {
-            // 2. Bersihkan file gambar/resi pembayaran di server (agar storage tidak penuh)
+            // 2. Bersihkan file gambar/resi pembayaran di server
             if ($reg->hasMedia('bukti_pembayaran_lomba')) {
                 $reg->clearMediaCollection('bukti_pembayaran_lomba');
             }
@@ -82,23 +88,26 @@ class ParticipantController extends Controller
                 $reg->clearMediaCollection('bukti_pembayaran');
             }
             
-            // 3. Hapus data (Otomatis mereset status Midtrans dan nilai CBT)
+            // 3. Hapus data (Berkat cascadeOnDelete di migrasi, ini akan otomatis 
+            // menghapus data di tabel payments, exam_results, dan exam_answers juga)
             $reg->delete();
         }
 
-        return back()->with('success', '🛠️ DEBUG: Semua riwayat pendaftaran lomba, tagihan Midtrans, dan nilai CBT milik "' . $user->name . '" berhasil dihapus bersih!');
+        return back()->with('success', '🛠️ DEBUG: Semua riwayat pendaftaran lomba, tagihan Midtrans, dan riwayat ujian CBT milik "' . $user->name . '" berhasil dihapus bersih!');
     }
 
+
+    // ====================================================================
+    // EXPORT & RANKING DATA LOMBA
+    // ====================================================================
+
+    // Export CSV Semua Peserta Secara Umum
     public function export()
     {
-        // Mengambil semua data registrasi peserta beserta relasi tabel user dan kompetisi
-        // Sesuaikan nama model 'Registration' dengan model pendaftaran yang kamu gunakan
-        $peserta = \App\Models\Registration::with(['user', 'competition'])->get();
+        $peserta = Registration::with(['user', 'competition'])->get();
 
-        // Menentukan nama file yang akan diunduh dengan menyertakan tanggal hari ini
-        $namaFile = "Data_Peserta_CBT_UPC_" . date('Y-m-d') . ".csv";
+        $namaFile = "Data_Semua_Peserta_UPC_" . date('Y-m-d') . ".csv";
 
-        // Mengatur header HTTP agar peramban mengenali respons ini sebagai file unduhan
         $headers = [
             "Content-type"        => "text/csv",
             "Content-Disposition" => "attachment; filename=$namaFile",
@@ -107,50 +116,38 @@ class ParticipantController extends Controller
             "Expires"             => "0"
         ];
 
-        // Menentukan judul kolom pada baris pertama di Excel
         $kolom = ['ID Pendaftaran', 'Nama Lengkap', 'Email', 'Asal Sekolah', 'Kompetisi', 'Status Verifikasi'];
 
-        // Membuat fungsi callback untuk menulis data baris demi baris ke dalam output
         $callback = function() use($peserta, $kolom) {
             $file = fopen('php://output', 'w');
             
-            // Menuliskan baris judul kolom
             fputcsv($file, $kolom);
 
-            // Melakukan perulangan untuk setiap peserta dan memasukkannya ke baris baru
             foreach ($peserta as $data) {
-                $baris['ID Pendaftaran']  = $data->id;
-                $baris['Nama Lengkap']    = $data->user->name ?? '-';
-                $baris['Email']           = $data->user->email ?? '-';
-                $baris['Asal Sekolah']    = $data->user->asal_sekolah ?? '-';
-                $baris['Kompetisi']       = $data->competition->nama_lomba ?? '-';
-                $baris['Status Verifikasi'] = $data->status ?? 'pending';
-
-                fputcsv($file, array(
-                    $baris['ID Pendaftaran'], 
-                    $baris['Nama Lengkap'], 
-                    $baris['Email'], 
-                    $baris['Asal Sekolah'], 
-                    $baris['Kompetisi'], 
-                    $baris['Status Verifikasi']
-                ));
+                fputcsv($file, [
+                    $data->id, 
+                    $data->user->name ?? '-', 
+                    $data->user->email ?? '-', 
+                    $data->user->asal_sekolah ?? '-', 
+                    $data->competition->nama_lomba ?? '-', 
+                    $data->status_pendaftaran ?? 'pending'
+                ]);
             }
 
             fclose($file);
         };
 
-        // Mengembalikan response stream yang akan langsung memicu unduhan di peramban
         return response()->stream($callback, 200, $headers);
     }
 
-    public function exportByCompetition(\App\Models\Competition $competition)
+    // Export CSV Khusus 1 Lomba beserta Nilai (Diambil dari relasi examResult)
+    public function exportByCompetition(Competition $competition)
     {
-        // Mengambil pendaftar khusus untuk lomba ini
-        $registrations = \App\Models\Registration::where('competition_id', $competition->id)
-            ->with(['user'])
+        // Panggil relasi 'user' dan 'examResult'
+        $registrations = Registration::where('competition_id', $competition->id)
+            ->with(['user', 'examResult'])
             ->get();
 
-        // Format nama file agar rapi (spasi diganti underscore)
         $namaFile = "Data_Peserta_" . str_replace(' ', '_', $competition->nama_lomba) . "_" . date('Y-m-d') . ".csv";
 
         $headers = [
@@ -161,7 +158,6 @@ class ParticipantController extends Controller
             "Expires"             => "0"
         ];
 
-        // Tambahkan kolom Nilai Akhir
         $columns = ['ID Pendaftaran', 'Nama Lengkap', 'Email', 'Asal Sekolah', 'Status Verifikasi', 'Nilai Akhir'];
 
         $callback = function() use ($registrations, $columns) {
@@ -175,7 +171,8 @@ class ParticipantController extends Controller
                     $data->user->email ?? '-',
                     $data->user->asal_sekolah ?? '-',
                     $data->status_pendaftaran ?? 'pending',
-                    $data->nilai ?? 0 // Ganti 'nilai' jika nama kolom skor Anda berbeda di tabel registrations
+                    // Memanggil skor dari tabel exam_results (bukan lagi dari $data->nilai)
+                    $data->examResult->score ?? 0 
                 ]);
             }
             fclose($file);
@@ -184,14 +181,20 @@ class ParticipantController extends Controller
         return response()->stream($callback, 200, $headers);
     }
 
-    public function ranking(\App\Models\Competition $competition)
+    // Fitur Papan Peringkat / Leaderboard
+    public function ranking(Competition $competition)
     {
-        // Ambil hanya peserta yang diverifikasi dan urutkan berdasarkan nilai tertinggi
-        $registrations = \App\Models\Registration::where('competition_id', $competition->id)
+        // 1. Ambil datanya
+        $registrations = Registration::where('competition_id', $competition->id)
             ->where('status_pendaftaran', 'verified')
-            ->with('user')
-            ->orderBy('nilai_cbt', 'desc') // Ganti 'nilai' jika nama kolom skor di database Anda berbeda
-            ->get();
+            ->with(['user', 'examResult'])
+            ->get()
+            // 2. Urutkan menggunakan Collection Method berdasarkan kolom score di relasi examResult
+            ->sortByDesc(function ($reg) {
+                return $reg->examResult->score ?? 0;
+            })
+            // 3. Reset index array menjadi 0, 1, 2, dst (penting untuk tampilan Top 3)
+            ->values(); 
 
         return view('admin.kompetisi.ranking', compact('competition', 'registrations'));
     }

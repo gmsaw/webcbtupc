@@ -53,8 +53,9 @@ class Competition extends Model implements HasMedia
     // MAGIC FUNCTION: Mengambil harga aktif saat ini secara otomatis
     public function getActivePriceAttribute()
     {
+        // Cek apakah lomba menggunakan gelombang
         if (!$this->is_using_waves) {
-            return $this->biaya_pendaftaran; // Kembali ke harga normal jika tidak pakai gelombang
+            return $this->harga_pendaftaran; 
         }
 
         // Cari gelombang yang tanggalnya mencakup HARI INI

@@ -120,7 +120,7 @@
     <script src="https://app.sandbox.midtrans.com/snap/snap.js" data-client-key="{{ env('MIDTRANS_CLIENT_KEY') }}"></script>
     <script type="text/javascript">
         document.getElementById('pay-button').onclick = function () {
-            snap.pay('{{ $registration->snap_token }}', {
+            snap.pay('{{ $registration->payment->snap_token }}', {
                 onSuccess: function(result){
                     window.location.href = "{{ route('dashboard') }}";
                 },

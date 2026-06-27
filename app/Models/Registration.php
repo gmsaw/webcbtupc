@@ -11,26 +11,13 @@ class Registration extends Model implements HasMedia
 {
     use HasFactory, InteractsWithMedia;
 
-    protected $fillable = [
-        'order_id',
-        'snap_token',
-        'user_id', 
-        'competition_id', 
-        'status_pendaftaran',
-        'jawaban_sementara', 
-        'status_pembayaran', 
-        'nilai_cbt', 
-        'is_winner', 
-        'peringkat'
-    ];
+    protected $fillable = ['user_id', 'competition_id', 'status_pendaftaran'];
 
-    public function user()
-    {
-        return $this->belongsTo(User::class);
-    }
-
-    public function competition()
-    {
-        return $this->belongsTo(Competition::class);
-    }
+    public function user() { return $this->belongsTo(User::class); }
+    public function competition() { return $this->belongsTo(Competition::class); }
+    
+    // Relasi ke tabel baru
+    public function payment() { return $this->hasOne(Payment::class); }
+    public function examResult() { return $this->hasOne(ExamResult::class); }
+    public function examAnswers() { return $this->hasMany(ExamAnswer::class); }
 }

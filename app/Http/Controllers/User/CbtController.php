@@ -4,22 +4,61 @@ namespace App\Http\Controllers\User;
 
 use App\Http\Controllers\Controller;
 use App\Models\Registration;
+use App\Models\ExamAnswer;
+use App\Models\ExamResult;
 use Illuminate\Http\Request;
 
 class CbtController extends Controller
 {
-    // 1. Method Show Diperbarui
+    // 1. Ruang Tunggu (Mencegah Server Down)
+    public function prepare(Registration $registration)
+    {
+        // Keamanan dasar
+        if ($registration->user_id !== auth()->id() || $registration->status_pendaftaran !== 'verified') {
+            return redirect()->route('dashboard')->with('error', 'Akses ditolak. Anda belum diverifikasi.');
+        }
+
+        // Pastikan record ExamResult sudah ada
+        if (!$registration->examResult) {
+            $registration->examResult()->create([
+                'status' => 'not_started',
+                'violation_count' => 0
+            ]);
+        }
+
+        // Cek apakah sudah selesai
+        if ($registration->examResult->status === 'finished') {
+            return redirect()->route('dashboard')->with('error', 'Anda sudah menyelesaikan ujian CBT ini.');
+        }
+
+        return view('user.cbt.prepare', compact('registration'));
+    }
+
+    // 2. Menampilkan Ujian
     public function show(Registration $registration)
     {
         if ($registration->user_id !== auth()->id() || $registration->status_pendaftaran !== 'verified') {
             return redirect()->route('dashboard')->with('error', 'Akses ditolak.');
         }
-        if (!is_null($registration->nilai_cbt)) {
+        
+        if ($registration->examResult && $registration->examResult->status === 'finished') {
             return redirect()->route('dashboard')->with('error', 'Anda sudah menyelesaikan ujian.');
         }
 
+        // Ubah status ujian menjadi Sedang Berlangsung (Jika baru pertama buka)
+        if ($registration->examResult->status === 'not_started') {
+            $registration->examResult()->update([
+                'status' => 'in_progress',
+                'start_time' => now()
+            ]);
+        }
+
         $competition = $registration->competition;
-        $questions = $competition->questions()->inRandomOrder()->get()->map(function ($q) {
+        
+        // PENTING: Gunakan orderBy('id') agar index array tidak berantakan saat halaman direfresh!
+        $questionsList = $competition->questions()->orderBy('id')->get();
+        
+        $questions = $questionsList->map(function ($q) {
             return [
                 'id' => $q->id,
                 'text' => $q->pertanyaan,
@@ -34,39 +73,64 @@ class CbtController extends Controller
             return redirect()->route('dashboard')->with('error', 'Soal ujian belum tersedia.');
         }
 
-        // AMBIL JAWABAN SEMENTARA (JIKA PESERTA REFRESH HALAMAN)
-        $savedAnswers = $registration->jawaban_sementara ? json_decode($registration->jawaban_sementara, true) : new \stdClass();
+        // AMBIL JAWABAN DARI TABEL `exam_answers`
+        // Kita format kembali menjadi Object JS { "0": "A", "1": "C" } agar sesuai dengan frontend Alpine.js
+        $savedAnswers = new \stdClass();
+        $dbAnswers = ExamAnswer::where('registration_id', $registration->id)->get()->keyBy('question_id');
+        
+        foreach ($questions as $index => $q) {
+            if (isset($dbAnswers[$q['id']])) {
+                $savedAnswers->{$index} = $dbAnswers[$q['id']]->answer_selected;
+            }
+        }
 
-        // Lempar variabel $savedAnswers ke view
         return view('user.cbt.ujian', compact('registration', 'competition', 'questions', 'savedAnswers'));
     }
 
-    // 2. METHOD AUTOSAVE BARU
+    // 3. METHOD AUTOSAVE (Tabel Baru)
     public function autosave(Request $request, Registration $registration)
     {
-        // Mencegah kecurangan / manipulasi
-        if ($registration->user_id !== auth()->id() || !is_null($registration->nilai_cbt)) {
+        // Mencegah kecurangan
+        if ($registration->user_id !== auth()->id() || ($registration->examResult && $registration->examResult->status === 'finished')) {
             return response()->json(['status' => 'error'], 403);
         }
 
-        // Simpan payload JSON dari frontend ke database
-        $registration->update([
-            'jawaban_sementara' => $request->input('answers')
-        ]);
+        $userAnswers = json_decode($request->input('answers'), true) ?? [];
+        $questions = $registration->competition->questions()->orderBy('id')->get();
+
+        foreach ($userAnswers as $index => $answer) {
+            if (isset($questions[$index])) {
+                $questionId = $questions[$index]->id;
+
+                // Simpan satu per satu ke tabel exam_answers
+                ExamAnswer::updateOrCreate(
+                    [
+                        'registration_id' => $registration->id,
+                        'question_id' => $questionId
+                    ],
+                    [
+                        'answer_selected' => $answer
+                    ]
+                );
+            }
+        }
 
         return response()->json(['status' => 'success', 'message' => 'Tersimpan otomatis']);
     }
 
-    // 2. Memproses Jawaban & Menghitung Nilai Otomatis
+    // 4. Memproses Jawaban & Menghitung Nilai Otomatis (Tabel Baru)
     public function submit(Request $request, Registration $registration)
     {
-        if ($registration->user_id !== auth()->id() || !is_null($registration->nilai_cbt)) {
+        if ($registration->user_id !== auth()->id() || ($registration->examResult && $registration->examResult->status === 'finished')) {
             return redirect()->route('dashboard');
         }
 
-        // Ambil data jawaban (berbentuk JSON dari Alpine.js)
-        $userAnswers = json_decode($request->input('answers'), true) ?? [];
+        // Simpan sisa jawaban terakhir yang belum sempat tersave oleh ajax
+        $this->autosave($request, $registration);
+
+        // MULAI KALKULASI NILAI
         $dbQuestions = $registration->competition->questions->keyBy('id');
+        $allUserAnswers = ExamAnswer::where('registration_id', $registration->id)->get();
 
         $score = 0;
         $totalBobot = $dbQuestions->sum('bobot_nilai');
@@ -75,10 +139,17 @@ class CbtController extends Controller
         if ($totalBobot == 0) $totalBobot = 1; 
 
         // Cocokkan jawaban peserta dengan database
-        foreach ($userAnswers as $questionId => $answer) {
-            if (isset($dbQuestions[$questionId])) {
-                if ($dbQuestions[$questionId]->jawaban_benar === $answer) {
-                    $score += $dbQuestions[$questionId]->bobot_nilai;
+        foreach ($allUserAnswers as $userAns) {
+            if (isset($dbQuestions[$userAns->question_id])) {
+                $q = $dbQuestions[$userAns->question_id];
+                
+                $isCorrect = ($q->jawaban_benar === $userAns->answer_selected);
+                
+                // Simpan status benar/salah ke tabel (Sangat berguna untuk Analisis Butir Soal/Statistik)
+                $userAns->update(['is_correct' => $isCorrect]);
+
+                if ($isCorrect) {
+                    $score += $q->bobot_nilai;
                 }
             }
         }
@@ -86,24 +157,13 @@ class CbtController extends Controller
         // Hitung skala 1-100 (Bisa disesuaikan dengan rumus HIMAFI)
         $finalScore = round(($score / $totalBobot) * 100, 2);
 
-        // Simpan nilai ke tabel registrations
-        $registration->update(['nilai_cbt' => $finalScore]);
+        // Simpan nilai akhir ke tabel exam_results
+        $registration->examResult()->update([
+            'score' => $finalScore,
+            'end_time' => now(),
+            'status' => 'finished'
+        ]);
 
         return redirect()->route('dashboard')->with('success', 'Ujian Selesai! Anda mendapatkan skor: ' . $finalScore);
-    }
-
-    // Ruang Tunggu (Mencegah Server Down)
-    public function prepare(Registration $registration)
-    {
-        // Keamanan dasar
-        if ($registration->user_id !== auth()->id() || $registration->status_pendaftaran !== 'verified') {
-            return redirect()->route('dashboard')->with('error', 'Akses ditolak. Anda belum diverifikasi.');
-        }
-
-        if (!is_null($registration->nilai_cbt)) {
-            return redirect()->route('dashboard')->with('error', 'Anda sudah menyelesaikan ujian CBT ini.');
-        }
-
-        return view('user.cbt.prepare', compact('registration'));
     }
 }
