@@ -55,7 +55,7 @@ class RegisteredUserController extends Controller
         // 3. Simpan Foto Profil & Jalankan Kompresi Otomatis
         if ($request->hasFile('foto_profil')) {
             $user->addMediaFromRequest('foto_profil')
-                 ->toMediaCollection('profile_picture'); // Sesuai dengan collection di model User
+                 ->toMediaCollection('foto_profil');
         }
 
         event(new Registered($user));

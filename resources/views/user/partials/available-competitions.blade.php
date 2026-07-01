@@ -34,7 +34,7 @@
                                 @endif
                             @else
                                 <span class="text-sm font-bold text-gray-900">
-                                    Rp {{ number_format($lomba->harga_pendaftaran, 0, ',', '.') }}
+                                    Rp {{ number_format($comp->harga_pendaftaran, 0, ',', '.') }}
                                 </span>
                             @endif
                         </div>

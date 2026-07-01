@@ -32,7 +32,6 @@
                 </div>
             @endif
 
-            <!-- Statistik Ringkas -->
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                 <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
                     <p class="text-xs text-gray-500 font-medium uppercase tracking-wider">Total Peserta</p>
@@ -66,17 +65,49 @@
                         </thead>
                         <tbody class="divide-y divide-gray-100">
                             @forelse ($registrations as $reg)
+                                @php
+                                    // Mengambil Nominal, Tipe, dan Bukti Pembayaran dari relasi Tagihan
+                                    $totalAmount = $reg->payment->amount ?? 0;
+                                    $paymentType = $reg->payment->payment_type ?? 'gateway';
+                                    $buktiTf = $reg->hasMedia('bukti_pembayaran_lomba') ? $reg->getFirstMediaUrl('bukti_pembayaran_lomba') : '';
+                                @endphp
+
                                 <tr class="bg-white hover:bg-blue-50/30 transition-colors {{ $reg->status_pendaftaran === 'pending' ? 'bg-yellow-50/10' : '' }}">
-                                    <td class="py-4 px-6 whitespace-nowrap">
-                                        <div class="font-bold text-gray-900 text-base">{{ $reg->user->name }}</div>
-                                        <div class="text-xs text-gray-500 mb-1 flex items-center gap-1">
-                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m3-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
-                                            {{ $reg->user->asal_sekolah ?? 'Tidak ada asal sekolah' }}
+                                <td class="py-4 px-6">
+                                    <div class="flex items-center gap-3">
+                                        <!-- Avatar / Foto Profil -->
+                                        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-100 to-cyan-100 text-blue-700 flex items-center justify-center font-bold text-lg shadow-sm border border-white shrink-0 overflow-hidden">
+                                            @if($reg->user->hasMedia('foto_profil'))
+                                                <img src="{{ $reg->user->getFirstMediaUrl('foto_profil') }}" class="w-full h-full object-cover" alt="Foto {{ $reg->user->name }}">
+                                            @else
+                                                <span class="text-sm font-bold">{{ substr($reg->user->name, 0, 1) }}</span>
+                                            @endif
                                         </div>
-                                        <div class="inline-flex items-center gap-1 bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded text-xs font-bold border border-indigo-100 mt-1">
-                                            Lomba: {{ $reg->competition->nama_lomba }}
+                                        
+                                        <!-- Informasi Peserta -->
+                                        <div class="min-w-0 flex-1">
+                                            <div class="font-bold text-gray-900 text-base truncate">{{ $reg->user->name }}</div>
+                                            
+                                            <div class="flex flex-wrap items-center gap-1 mt-0.5">
+                                                <!-- Asal Sekolah -->
+                                                <div class="text-xs text-gray-500 flex items-center gap-1">
+                                                    <svg class="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m3-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                                                    </svg>
+                                                    <span class="truncate max-w-[120px]">{{ $reg->user->asal_sekolah ?? 'Tidak ada asal sekolah' }}</span>
+                                                </div>
+                                                
+                                                <!-- Nama Lomba -->
+                                                <span class="inline-flex items-center gap-1 bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded text-xs font-bold border border-indigo-100 truncate max-w-[150px]">
+                                                    <svg class="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                                                    </svg>
+                                                    {{ $reg->competition->nama_lomba }}
+                                                </span>
+                                            </div>
                                         </div>
-                                    </td>
+                                    </div>
+                                </td>
                                     
                                     <td class="py-4 px-6 text-center font-medium">
                                         {{ $reg->created_at->format('d M Y') }}<br>
@@ -88,10 +119,12 @@
                                             @click="activeData = { 
                                                 nama: '{{ addslashes($reg->user->name) }}',
                                                 lomba: '{{ addslashes($reg->competition->nama_lomba) }}',
-                                                harga: '{{ $reg->competition->harga_pendaftaran == 0 ? 'GRATIS' : 'Rp ' . number_format($reg->competition->harga_pendaftaran, 0, ',', '.') }}',
-                                                order_id: '{{ $reg->order_id ?? 'Tidak Ada' }}',
+                                                harga: '{{ $totalAmount == 0 ? 'GRATIS' : 'Rp ' . number_format($totalAmount, 0, ',', '.') }}',
+                                                order_id: '{{ $reg->payment->order_id ?? 'Tidak Ada' }}',
+                                                payment_type: '{{ $paymentType }}',
                                                 status: '{{ $reg->status_pendaftaran }}',
-                                                kartu: '{{ $reg->user->hasMedia('kartu_pelajar') ? $reg->user->getFirstMediaUrl('kartu_pelajar') : '' }}'
+                                                kartu: '{{ $reg->user->hasMedia('kartu_pelajar') ? $reg->user->getFirstMediaUrl('kartu_pelajar') : '' }}',
+                                                bukti_tf: '{{ $buktiTf }}'
                                             }; docModal = true" 
                                             class="inline-flex items-center gap-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-lg text-xs font-bold transition">
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
@@ -116,7 +149,7 @@
                                                     @csrf
                                                     @method('PUT')
                                                     <input type="hidden" name="status" value="verified">
-                                                    <button type="submit" onclick="return confirm('Setujui secara manual (Abaikan Midtrans)?')" class="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-600 hover:bg-green-600 hover:text-white rounded-lg transition font-bold text-xs shadow-sm" title="Terima Manual">
+                                                    <button type="submit" onclick="return confirm('Apakah Anda yakin ingin Menerima/Menyetujui pendaftaran ini?')" class="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-600 hover:bg-green-600 hover:text-white rounded-lg transition font-bold text-xs shadow-sm" title="Terima">
                                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
                                                         Setujui
                                                     </button>
@@ -175,7 +208,6 @@
             </div>
         </div>
 
-        <!-- Modal Detail -->
         <div x-show="docModal" style="display: none;" class="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
             <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
                 <div x-show="docModal" x-transition.opacity class="fixed inset-0 bg-gray-900/80 backdrop-blur-sm transition-opacity" @click="docModal = false" aria-hidden="true"></div>
@@ -198,12 +230,12 @@
 
                     <div class="px-6 py-6 flex flex-col md:flex-row gap-6 bg-gray-100">
                         
-                        <div class="flex-1 bg-white p-4 rounded-2xl shadow-sm border border-gray-200">
+                        <div class="flex-1 bg-white p-4 rounded-2xl shadow-sm border border-gray-200 flex flex-col">
                             <h4 class="text-sm font-bold text-gray-700 mb-3 text-center uppercase tracking-wider">Kartu Pelajar</h4>
-                            <div class="w-full h-64 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200 flex items-center justify-center overflow-hidden">
+                            <div class="w-full flex-1 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200 flex items-center justify-center overflow-hidden">
                                 <template x-if="activeData.kartu !== ''">
                                     <a :href="activeData.kartu" target="_blank" title="Klik untuk memperbesar">
-                                        <img :src="activeData.kartu" class="w-full h-full object-contain hover:scale-105 transition-transform cursor-pointer">
+                                        <img :src="activeData.kartu" class="w-full max-h-56 object-contain hover:scale-105 transition-transform cursor-pointer">
                                     </a>
                                 </template>
                                 <template x-if="activeData.kartu === ''">
@@ -215,12 +247,12 @@
                             </div>
                         </div>
 
-                        <div class="flex-1 bg-white p-4 rounded-2xl shadow-sm border border-gray-200">
+                        <div class="flex-1 bg-white p-4 rounded-2xl shadow-sm border border-gray-200 flex flex-col">
                             <h4 class="text-sm font-bold text-gray-700 mb-3 text-center uppercase tracking-wider">Status Pembayaran</h4>
-                            <div class="w-full h-64 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center p-6 text-center overflow-hidden">
+                            <div class="w-full flex-1 min-h-[224px] bg-gray-50 rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center p-4 text-center overflow-hidden">
                                 
                                 <template x-if="activeData.harga === 'GRATIS'">
-                                    <div class="text-green-500">
+                                    <div class="text-green-500 my-auto">
                                         <svg class="w-12 h-12 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                         <p class="text-base font-bold">Kompetisi Gratis</p>
                                         <p class="text-xs text-gray-500 mt-1">Tidak memerlukan pembayaran tagihan.</p>
@@ -228,17 +260,37 @@
                                 </template>
                                 
                                 <template x-if="activeData.harga !== 'GRATIS'">
-                                    <div class="w-full">
-                                        <div class="mb-5">
-                                            <svg class="w-12 h-12 mx-auto mb-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
-                                            <p class="text-base font-bold text-gray-900">Payment Gateway</p>
-                                            <div class="mt-2 bg-white border border-gray-200 rounded-lg py-1.5 px-3 inline-block">
-                                                <p class="text-xs font-mono text-gray-600" x-text="activeData.order_id"></p>
+                                    <div class="w-full h-full flex flex-col">
+                                        
+                                        <template x-if="activeData.payment_type === 'gateway'">
+                                            <div class="mb-4 my-auto">
+                                                <svg class="w-12 h-12 mx-auto mb-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
+                                                <p class="text-sm font-bold text-gray-900 uppercase tracking-wider">Payment Gateway</p>
+                                                <div class="mt-2 bg-white border border-gray-200 rounded-lg py-1 px-3 inline-block">
+                                                    <p class="text-xs font-mono text-gray-600" x-text="activeData.order_id"></p>
+                                                </div>
                                             </div>
-                                        </div>
+                                        </template>
 
-                                        <div class="w-full rounded-xl py-3 border" :class="activeData.status === 'verified' ? 'bg-green-50 border-green-200 text-green-700' : (activeData.status === 'pending' ? 'bg-yellow-50 border-yellow-200 text-yellow-700' : 'bg-red-50 border-red-200 text-red-700')">
-                                            <p class="text-sm font-black tracking-wider uppercase" x-text="activeData.status === 'verified' ? 'LUNAS (OTOMATIS)' : (activeData.status === 'pending' ? 'MENUNGGU PEMBAYARAN' : 'DIBATALKAN / DITOLAK')"></p>
+                                        <template x-if="activeData.payment_type === 'manual'">
+                                            <div class="flex-1 flex flex-col justify-center items-center h-full mb-3 relative">
+                                                <p class="text-[10px] text-gray-400 mb-2 font-bold tracking-widest uppercase">Bukti Transfer Manual</p>
+                                                <template x-if="activeData.bukti_tf !== ''">
+                                                    <a :href="activeData.bukti_tf" target="_blank" title="Klik untuk memperbesar gambar">
+                                                        <img :src="activeData.bukti_tf" class="max-h-32 object-contain hover:scale-105 transition-transform cursor-pointer rounded shadow-sm border border-gray-200 bg-white">
+                                                    </a>
+                                                </template>
+                                                <template x-if="activeData.bukti_tf === ''">
+                                                    <div class="text-gray-400 my-4">
+                                                        <svg class="w-8 h-8 mx-auto mb-1 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                                                        <p class="text-[10px] font-bold uppercase tracking-wider">Belum Upload Bukti</p>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </template>
+
+                                        <div class="w-full rounded-xl py-2.5 border mt-auto" :class="activeData.status === 'verified' ? 'bg-green-50 border-green-200 text-green-700' : (activeData.status === 'pending' ? 'bg-yellow-50 border-yellow-200 text-yellow-700' : 'bg-red-50 border-red-200 text-red-700')">
+                                            <p class="text-[11px] font-black tracking-wider uppercase" x-text="activeData.status === 'verified' ? 'LUNAS DISETUJUI' : (activeData.status === 'pending' ? (activeData.payment_type === 'manual' ? 'Cek Bukti & Setujui' : 'Menunggu Midtrans') : 'DIBATALKAN / DITOLAK')"></p>
                                         </div>
                                     </div>
                                 </template>
