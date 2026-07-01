@@ -24,7 +24,19 @@
                         <div class="absolute inset-0 bg-gradient-to-t from-gray-900/95 via-gray-900/40 to-transparent"></div>
                         
                         <div class="absolute top-4 right-4 bg-white/95 backdrop-blur-sm text-gray-900 text-xs font-bold px-3 py-1.5 rounded-full shadow-sm">
-                            {{ $comp->harga_pendaftaran == 0 ? 'GRATIS' : 'Rp ' . number_format($comp->harga_pendaftaran, 0, ',', '.') }}
+                            @if($comp->is_using_waves)
+                                @if(is_null($comp->active_price))
+                                    <span class="px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-bold">Gelombang Tutup</span>
+                                @else
+                                    <span class="text-sm font-bold text-gray-900">
+                                        {{ $comp->active_wave_name }}: Rp {{ number_format($comp->active_price, 0, ',', '.') }}
+                                    </span>
+                                @endif
+                            @else
+                                <span class="text-sm font-bold text-gray-900">
+                                    Rp {{ number_format($lomba->harga_pendaftaran, 0, ',', '.') }}
+                                </span>
+                            @endif
                         </div>
                         
                         <h4 class="absolute bottom-4 left-5 right-5 text-xl font-bold text-white leading-tight drop-shadow-md">{{ $comp->nama_lomba }}</h4>
@@ -53,15 +65,33 @@
                             $isOpen = $comp->is_active && $comp->tanggal_mulai && $comp->tanggal_selesai && $today->between($comp->tanggal_mulai, $comp->tanggal_selesai);
                         @endphp
 
-                        @if($isOpen)
+                        @php
+                            // Ambil harga dinamis (harga gelombang jika ada, atau harga normal jika tidak)
+                            $activePrice = $comp->active_price;
+                            
+                            // Syarat bisa daftar:
+                            // 1. $isOpen (Tanggal utama masih berlaku)
+                            // 2. Jika pakai gelombang, $activePrice TIDAK boleh null (harus ada gelombang yang aktif)
+                            $canRegister = $isOpen && (!$comp->is_using_waves || !is_null($activePrice));
+                        @endphp
+
+                        @if($canRegister)
                             <button type="button" 
-                                @click="comp = { id: '{{ $comp->id }}', title: '{{ addslashes($comp->nama_lomba) }}', price: {{ $comp->harga_pendaftaran }}, price_fmt: '{{ $comp->harga_pendaftaran == 0 ? 'GRATIS' : 'Rp ' . number_format($comp->harga_pendaftaran, 0, ',', '.') }}' }; registrationModal = true; paymentMethod = 'manual';" 
+                                @click="
+                                    comp = { 
+                                        id: '{{ $comp->id }}', 
+                                        title: '{{ addslashes($comp->nama_lomba) }}', 
+                                        price: {{ $activePrice ?? 0 }}, 
+                                        price_fmt: '{{ ($activePrice ?? 0) == 0 ? 'GRATIS' : 'Rp ' . number_format($activePrice ?? 0, 0, ',', '.') }}' 
+                                    }; 
+                                    registrationModal = true;
+                                " 
                                 class="w-full bg-cyan-600 hover:bg-blue-700 text-white py-3 rounded-xl font-bold text-sm shadow-md transition-colors transform hover:-translate-y-0.5">
                                 Daftar Sekarang
                             </button>
                         @else
                             <button type="button" disabled class="w-full bg-gray-100 text-gray-400 border border-gray-200 py-3 rounded-xl font-bold text-sm cursor-not-allowed">
-                                Pendaftaran Ditutup
+                                Pendaftaran Belum Buka / Tutup
                             </button>
                         @endif
 

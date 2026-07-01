@@ -83,10 +83,17 @@
                     <div class="bg-white p-6 rounded-3xl shadow-lg border border-gray-100 sticky top-8">
                         <h3 class="text-lg font-bold text-gray-900 mb-6 border-b border-gray-100 pb-4">Ringkasan Tagihan</h3>
                         
+                        @php
+                            // Ambil nominal tagihan asli yang sudah terekam di tabel payments
+                            $totalAmount = $registration->payment->amount ?? 0;
+                        @endphp
+
                         <div class="space-y-4 mb-6">
                             <div class="flex justify-between items-center text-sm">
                                 <span class="text-gray-500">Harga Tiket Lomba</span>
-                                <span class="font-semibold text-gray-800">Rp {{ number_format($registration->competition->harga_pendaftaran, 0, ',', '.') }}</span>
+                                <span class="font-semibold text-gray-800">
+                                    {{ $totalAmount == 0 ? 'Gratis' : 'Rp ' . number_format($totalAmount, 0, ',', '.') }}
+                                </span>
                             </div>
                             <div class="flex justify-between items-center text-sm">
                                 <span class="text-gray-500">Biaya Layanan</span>
@@ -97,7 +104,9 @@
                         <div class="border-t border-dashed border-gray-200 pt-4 mb-8">
                             <div class="flex justify-between items-end">
                                 <span class="text-sm font-bold text-gray-900">Total Pembayaran</span>
-                                <span class="text-2xl font-black text-blue-600 tracking-tight">Rp {{ number_format($registration->competition->harga_pendaftaran, 0, ',', '.') }}</span>
+                                <span class="text-2xl font-black {{ $totalAmount == 0 ? 'text-green-600' : 'text-blue-600' }} tracking-tight">
+                                    {{ $totalAmount == 0 ? 'GRATIS' : 'Rp ' . number_format($totalAmount, 0, ',', '.') }}
+                                </span>
                             </div>
                         </div>
 

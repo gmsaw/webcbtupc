@@ -33,6 +33,7 @@ class Competition extends Model implements HasMedia
             'tanggal_mulai' => 'date',
             'tanggal_selesai' => 'date',
             'waktu_pelaksanaan' => 'datetime',
+            'is_using_waves' => 'boolean',
         ];
     }
 
