@@ -70,31 +70,31 @@
                                 </div>
 
                                 <div x-show="isUsingWaves" x-transition style="display:none;" class="space-y-4">
-                                    <template x-for="(wave, index) in waves" :key="index">
-                                        <div class="flex flex-col gap-3 p-4 bg-white border border-indigo-100 rounded-xl shadow-sm relative">
-                                            <button type="button" @click="waves.splice(index, 1)" x-show="waves.length > 1" class="absolute -top-2 -right-2 w-7 h-7 bg-red-100 text-red-600 hover:bg-red-600 hover:text-white rounded-full flex items-center justify-center transition shadow-sm">
-                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                                            </button>
+                                <template x-for="(wave, index) in waves" :key="index">
+                                    <div class="flex flex-col gap-3 p-4 bg-white border border-indigo-100 rounded-xl shadow-sm relative">
+                                        <button type="button" @click="waves.splice(index, 1)" x-show="waves.length > 1" class="absolute -top-2 -right-2 w-7 h-7 bg-red-100 text-red-600 hover:bg-red-600 hover:text-white rounded-full flex items-center justify-center transition shadow-sm">
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                        </button>
+                                        <div>
+                                            <label class="text-[11px] font-bold text-slate-500 uppercase">Nama Gelombang</label>
+                                            <input type="text" x-bind:name="'waves[' + index + '][nama_gelombang]'" x-model="waves[index].nama_gelombang" placeholder="Cth: Early Bird" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm text-sm py-1.5" :required="isUsingWaves">
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-3">
                                             <div>
-                                                <label class="text-[11px] font-bold text-slate-500 uppercase">Nama Gelombang</label>
-                                                <input type="text" x-bind:name="'waves[' + index + '][nama_gelombang]'" x-model="wave.nama_gelombang" placeholder="Cth: Early Bird" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm text-sm py-1.5" :required="isUsingWaves">
-                                            </div>
-                                            <div class="grid grid-cols-2 gap-3">
-                                                <div>
-                                                    <label class="text-[11px] font-bold text-slate-500 uppercase">Tgl Mulai</label>
-                                                    <input type="datetime-local" x-bind:name="'waves[' + index + '][start_date]'" x-model="wave.start_date" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm text-xs py-1.5" :required="isUsingWaves">
-                                                </div>
-                                                <div>
-                                                    <label class="text-[11px] font-bold text-slate-500 uppercase">Tgl Berakhir</label>
-                                                    <input type="datetime-local" x-bind:name="'waves[' + index + '][end_date]'" x-model="wave.end_date" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm text-xs py-1.5" :required="isUsingWaves">
-                                                </div>
+                                                <label class="text-[11px] font-bold text-slate-500 uppercase">Tgl Mulai</label>
+                                                <input type="datetime-local" x-bind:name="'waves[' + index + '][start_date]'" x-model="waves[index].start_date" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm text-xs py-1.5" :required="isUsingWaves">
                                             </div>
                                             <div>
-                                                <label class="text-[11px] font-bold text-slate-500 uppercase">Biaya (Rp)</label>
-                                                <input type="number" x-bind:name="'waves[' + index + '][biaya]'" x-model="wave.biaya" placeholder="150000" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm text-sm py-1.5" :required="isUsingWaves">
+                                                <label class="text-[11px] font-bold text-slate-500 uppercase">Tgl Berakhir</label>
+                                                <input type="datetime-local" x-bind:name="'waves[' + index + '][end_date]'" x-model="waves[index].end_date" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm text-xs py-1.5" :required="isUsingWaves">
                                             </div>
                                         </div>
-                                    </template>
+                                        <div>
+                                            <label class="text-[11px] font-bold text-slate-500 uppercase">Biaya (Rp)</label>
+                                            <input type="number" x-bind:name="'waves[' + index + '][biaya]'" x-model="waves[index].biaya" placeholder="150000" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm text-sm py-1.5" :required="isUsingWaves">
+                                        </div>
+                                    </div>
+                                </template>
                                     <button type="button" @click="waves.push({ nama_gelombang: '', start_date: '', end_date: '', biaya: '' })" class="w-full py-2.5 bg-indigo-50 text-indigo-600 border border-indigo-200 hover:bg-indigo-600 hover:text-white rounded-xl text-xs font-bold transition shadow-sm flex items-center justify-center gap-2">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                                         Tambah Gelombang

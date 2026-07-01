@@ -16,10 +16,9 @@
             </button>
         </div>
 
-        <form action="{{ route('user.kompetisi.daftar') }}" method="POST">
+        <form action="{{ route('user.kompetisi.daftar') }}" method="POST" enctype="multipart/form-data" x-data="{ metode: 'gateway' }">
             @csrf
             <input type="hidden" name="competition_id" x-model="comp.id">
-            <input type="hidden" name="metode_pembayaran" value="gateway">
 
             <div class="px-6 py-6 space-y-5">
                 
@@ -35,13 +34,44 @@
                 </div>
 
                 <template x-if="comp.price > 0">
-                    <div class="bg-blue-50/50 border border-blue-100 p-4 rounded-2xl flex items-start gap-4">
-                        <div class="bg-blue-100 text-blue-600 p-2 rounded-xl shrink-0">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
-                        </div>
+                    <div class="space-y-4">
+                        
                         <div>
-                            <h5 class="font-bold text-blue-900 text-sm mb-1">Pembayaran Otomatis</h5>
-                            <p class="text-xs text-blue-800/80 leading-relaxed">Anda akan diarahkan ke halaman Midtrans untuk membayar menggunakan <b>QRIS, GoPay, ShopeePay, atau Virtual Account</b>.</p>
+                            <label class="block font-bold text-sm text-gray-700 mb-2">Metode Pembayaran</label>
+                            <select name="metode_pembayaran" x-model="metode" class="w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-xl shadow-sm text-sm" required>
+                                <option value="gateway">Transfer Otomatis (Midtrans / QRIS / GoPay)</option>
+                                <option value="manual">Transfer Manual (Upload Bukti Transfer)</option>
+                            </select>
+                        </div>
+
+                        <div x-show="metode === 'gateway'" x-transition style="display: none;" class="bg-blue-50/50 border border-blue-100 p-4 rounded-2xl flex items-start gap-4">
+                            <div class="bg-blue-100 text-blue-600 p-2 rounded-xl shrink-0">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                            </div>
+                            <div>
+                                <h5 class="font-bold text-blue-900 text-sm mb-1">Pembayaran Otomatis</h5>
+                                <p class="text-xs text-blue-800/80 leading-relaxed">Anda akan diarahkan ke halaman Midtrans untuk membayar menggunakan <b>QRIS, GoPay, ShopeePay, atau Virtual Account</b>.</p>
+                            </div>
+                        </div>
+
+                        <div x-show="metode === 'manual'" x-transition style="display: none;" class="p-5 bg-blue-50/50 rounded-2xl border border-blue-100">
+                            <h4 class="text-sm font-black text-blue-900 mb-2">Informasi Rekening Panitia</h4>
+                            <ul class="text-xs text-blue-800 space-y-1 mb-4 list-disc pl-4">
+                                <li><strong>BCA:</strong> 1234567890 a.n. HIMAFI UNUD</li>
+                                <li><strong>BRI:</strong> 0987654321 a.n. HIMAFI UNUD</li>
+                                <li><strong>Dana/OVO:</strong> 081234567890 a.n. Bendahara UPC</li>
+                            </ul>
+                            
+                            <label class="block font-bold text-sm text-gray-700 mb-2">Upload Bukti Transfer</label>
+                            <input type="file" name="bukti_pembayaran" accept="image/jpeg,image/png,image/jpg" 
+                                class="block w-full text-sm text-slate-500
+                                file:mr-4 file:py-2.5 file:px-4
+                                file:rounded-xl file:border-0
+                                file:text-sm file:font-bold
+                                file:bg-blue-600 file:text-white
+                                hover:file:bg-blue-700 transition shadow-sm cursor-pointer"
+                                :required="metode === 'manual'">
+                            <p class="text-[11px] text-gray-500 mt-2 font-medium">Format: JPG, PNG. Ukuran Maksimal: 2MB.</p>
                         </div>
                     </div>
                 </template>
@@ -65,7 +95,7 @@
                     Batal
                 </button>
                 <button type="submit" class="w-full sm:w-auto px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm shadow-md shadow-blue-600/20 transition-all transform hover:-translate-y-0.5 flex items-center justify-center gap-2">
-                    <span>Lanjutkan Pembayaran</span>
+                    <span x-text="comp.price == 0 ? 'Daftar Sekarang' : (metode === 'manual' ? 'Kirim Pendaftaran' : 'Lanjutkan Pembayaran')">Lanjutkan Pembayaran</span>
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
                 </button>
             </div>

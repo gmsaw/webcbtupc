@@ -50,7 +50,7 @@ class Competition extends Model implements HasMedia
     // Relasi ke tabel gelombang
     public function waves()
     {
-        return $this->hasMany(CompetitionWave::class);
+        return $this->hasMany(CompetitionWave::class, 'competition_id');
     }
 
     // MAGIC FUNCTION: Mengambil harga aktif saat ini secara otomatis
