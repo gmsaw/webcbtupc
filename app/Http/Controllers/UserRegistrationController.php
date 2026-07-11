@@ -62,7 +62,8 @@ class UserRegistrationController extends Controller
         // 6. Cek Bentrok Jadwal Pelaksanaan Ujian
         if ($newComp->waktu_pelaksanaan && $newComp->durasi_menit) {
             $newStart = Carbon::parse($newComp->waktu_pelaksanaan);
-            $newEnd = $newStart->copy()->addMinutes($newComp->durasi_menit);
+            
+            $newEnd = $newStart->copy()->addMinutes((int)$newComp->durasi_menit);
 
             $myRegistrations = Registration::with('competition')
                 ->where('user_id', $user->id)
@@ -72,7 +73,9 @@ class UserRegistrationController extends Controller
             foreach ($myRegistrations as $reg) {
                 if ($reg->competition->waktu_pelaksanaan && $reg->competition->durasi_menit) {
                     $oldStart = Carbon::parse($reg->competition->waktu_pelaksanaan);
-                    $oldEnd = $oldStart->copy()->addMinutes($reg->competition->durasi_menit);
+                    
+                    // PERBAIKAN: Tambahkan (int) juga di sini
+                    $oldEnd = $oldStart->copy()->addMinutes((int)$reg->competition->durasi_menit);
 
                     // Rumus Bentrok Waktu (Overlap)
                     if ($newStart->lt($oldEnd) && $newEnd->gt($oldStart)) {

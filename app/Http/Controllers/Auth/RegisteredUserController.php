@@ -38,7 +38,7 @@ class RegisteredUserController extends Controller
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
             'asal_sekolah' => ['required', 'string', 'max:255'],
             'no_wa' => ['required', 'string', 'max:20'],
-            'foto_profil' => ['required', 'image', 'mimes:jpeg,png,jpg,webp', 'max:5120'], // Wajib, Maksimal 5MB
+            'foto_profil' => ['required', 'image', 'mimes:jpeg,png,jpg,webp', 'max:2048'], // Max 2MB
         ]);
 
         // 2. Buat User Baru

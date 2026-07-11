@@ -43,15 +43,18 @@
                     </div>
                     <div>
                         @php
-                            $activeCount = $competitions->filter(function($comp) {
-                                $now = \Carbon\Carbon::now();
+                            $now = \Carbon\Carbon::now();
+                            $activeCount = $competitions->filter(function($comp) use ($now) {
+                                if (!$comp->is_active || !$comp->tanggal_mulai || !$comp->tanggal_selesai) {
+                                    return false;
+                                }
+                                $registrationStart = \Carbon\Carbon::parse($comp->tanggal_mulai);
                                 $registrationEnd = \Carbon\Carbon::parse($comp->tanggal_selesai);
-                                $examEnd = \Carbon\Carbon::parse($comp->waktu_pelaksanaan)->addMinutes($comp->durasi_menit);
-                                return $comp->is_active && $now->lte($registrationEnd) && $now->lte($examEnd);
+                                return $now->between($registrationStart, $registrationEnd);
                             })->count();
                         @endphp
                         <p class="text-2xl font-black text-gray-800">{{ $activeCount }}</p>
-                        <p class="text-xs text-gray-500 font-medium">Lomba Aktif</p>
+                        <p class="text-xs text-gray-500 font-medium">Lomba Aktif (Pendaftaran)</p>
                     </div>
                 </div>
             </div>
@@ -63,14 +66,15 @@
                     </div>
                     <div>
                         @php
-                            $endedCount = $competitions->filter(function($comp) {
-                                $now = \Carbon\Carbon::now();
-                                $examEnd = \Carbon\Carbon::parse($comp->waktu_pelaksanaan)->addMinutes($comp->durasi_menit);
-                                return $now->gt($examEnd);
+                            $now = \Carbon\Carbon::now();
+                            $upcomingCount = $competitions->filter(function($comp) use ($now) {
+                                if (!$comp->tanggal_mulai) return false;
+                                $registrationStart = \Carbon\Carbon::parse($comp->tanggal_mulai);
+                                return $now->lt($registrationStart);
                             })->count();
                         @endphp
-                        <p class="text-2xl font-black text-gray-800">{{ $endedCount }}</p>
-                        <p class="text-xs text-gray-500 font-medium">Telah Berakhir</p>
+                        <p class="text-2xl font-black text-gray-800">{{ $upcomingCount }}</p>
+                        <p class="text-xs text-gray-500 font-medium">Akan Datang</p>
                     </div>
                 </div>
             </div>
@@ -95,37 +99,59 @@
                     $now = \Carbon\Carbon::now();
                     
                     // Cek tanggal pendaftaran
-                    $registrationStart = \Carbon\Carbon::parse($comp->tanggal_mulai);
-                    $registrationEnd = \Carbon\Carbon::parse($comp->tanggal_selesai);
-                    $isRegistrationOpen = $now->between($registrationStart, $registrationEnd);
+                    $registrationStart = $comp->tanggal_mulai ? \Carbon\Carbon::parse($comp->tanggal_mulai) : null;
+                    $registrationEnd = $comp->tanggal_selesai ? \Carbon\Carbon::parse($comp->tanggal_selesai) : null;
                     
                     // Cek waktu pelaksanaan
-                    $examStart = \Carbon\Carbon::parse($comp->waktu_pelaksanaan);
-                    $examEnd = $examStart->copy()->addMinutes($comp->durasi_menit);
-                    $isExamEnded = $now->gt($examEnd);
+                    $examStart = $comp->waktu_pelaksanaan ? \Carbon\Carbon::parse($comp->waktu_pelaksanaan) : null;
+                    $examEnd = $examStart && $comp->durasi_menit ? $examStart->copy()->addMinutes((int)$comp->durasi_menit) : null;
                     
-                    // Status
+                    // Status dengan logika yang benar
+                    $isActive = false;
+                    $isRegistrationOpen = false;
+                    $isExamEnded = false;
+                    $isRegistrationClosed = false;
+                    $isUpcoming = false;
+                    
+                    if ($registrationStart && $registrationEnd) {
+                        $isRegistrationOpen = $now->between($registrationStart, $registrationEnd);
+                        $isRegistrationClosed = $now->gt($registrationEnd);
+                        $isUpcoming = $now->lt($registrationStart);
+                    }
+                    
+                    if ($examEnd) {
+                        $isExamEnded = $now->gt($examEnd);
+                    }
+                    
+                    // Aktif jika: lomba aktif, pendaftaran terbuka, dan belum berakhir
                     $isActive = $comp->is_active && $isRegistrationOpen && !$isExamEnded;
-                    $isEnded = $isExamEnded;
-                    $isRegistrationClosed = !$isRegistrationOpen && !$isExamEnded;
                     
                     // Badge status
                     $statusBadge = '';
                     $headerGradient = '';
+                    $icon = '';
                     
                     if ($isActive) {
                         $statusBadge = '<span class="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500 text-white rounded-full text-xs font-bold shadow-lg"><span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>Aktif</span>';
                         $headerGradient = 'from-emerald-500 to-teal-500';
-                    } elseif ($isRegistrationClosed) {
+                        $icon = '🏆';
+                    } elseif ($isUpcoming) {
+                        $statusBadge = '<span class="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-500 text-white rounded-full text-xs font-bold shadow-lg"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>Akan Datang</span>';
+                        $headerGradient = 'from-blue-500 to-indigo-500';
+                        $icon = '📅';
+                    } elseif ($isRegistrationClosed && !$isExamEnded) {
                         $statusBadge = '<span class="inline-flex items-center gap-1.5 px-3 py-1 bg-yellow-500 text-white rounded-full text-xs font-bold shadow-lg"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>Pendaftaran Tutup</span>';
                         $headerGradient = 'from-yellow-500 to-orange-500';
-                    } else {
+                        $icon = '📝';
+                    } elseif ($isExamEnded) {
                         $statusBadge = '<span class="inline-flex items-center gap-1.5 px-3 py-1 bg-red-500 text-white rounded-full text-xs font-bold shadow-lg"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>Berakhir</span>';
                         $headerGradient = 'from-gray-400 to-gray-500';
+                        $icon = '📋';
+                    } else {
+                        $statusBadge = '<span class="inline-flex items-center gap-1.5 px-3 py-1 bg-gray-500 text-white rounded-full text-xs font-bold shadow-lg">Tidak Aktif</span>';
+                        $headerGradient = 'from-gray-400 to-gray-500';
+                        $icon = '📌';
                     }
-                    
-                    // Icon berdasarkan status
-                    $icon = $isActive ? '🏆' : ($isRegistrationClosed ? '📝' : '📋');
                 @endphp
 
                 <div class="group bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
@@ -172,18 +198,18 @@
                             {{ $comp->deskripsi ?: 'Tidak ada deskripsi' }}
                         </p>
 
-                        <div class="flex items-center gap-4 text-sm text-gray-500 mb-4 pb-4 border-b border-gray-100">
+                        <div class="flex flex-wrap items-center gap-3 text-sm text-gray-500 mb-4 pb-4 border-b border-gray-100">
                             <span class="inline-flex items-center gap-1.5">
                                 <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                                 {{ $comp->registrations_count }} Pendaftar
                             </span>
                             <span class="inline-flex items-center gap-1.5">
                                 <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                                {{ \Carbon\Carbon::parse($comp->tanggal_mulai)->format('d/m/Y') }}
+                                {{ $comp->tanggal_mulai ? \Carbon\Carbon::parse($comp->tanggal_mulai)->format('d/m/Y') : '-' }}
                             </span>
                             <span class="inline-flex items-center gap-1.5">
                                 <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                {{ \Carbon\Carbon::parse($comp->tanggal_selesai)->format('d/m/Y') }}
+                                {{ $comp->tanggal_selesai ? \Carbon\Carbon::parse($comp->tanggal_selesai)->format('d/m/Y') : '-' }}
                             </span>
                         </div>
                         
@@ -204,7 +230,7 @@
                                     CSV
                                 </a>
 
-                                @if($isEnded || $isRegistrationClosed)
+                                @if($isExamEnded || $isRegistrationClosed)
                                     <a href="{{ route('admin.kompetisi.ranking', $comp->id) }}" 
                                        class="flex-1 flex items-center justify-center gap-1.5 py-2 bg-amber-50 hover:bg-amber-500 hover:text-white text-amber-700 rounded-xl text-xs font-bold transition-all duration-300 border border-amber-200">
                                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>

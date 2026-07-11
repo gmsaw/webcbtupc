@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Artisan;
 
 // Import Model
 use App\Models\User;
@@ -157,6 +158,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     
     // API Log Keamanan DRM
     Route::post('/user/pustaka/log-security', [LibraryController::class, 'logSecurity'])->name('user.pustaka.log');
+});
+
+Route::get('/link-storage', function () {
+    Artisan::call('storage:link');
+    return "Storage link has been created!";
 });
 
 // =========================================================================
