@@ -33,7 +33,7 @@ class CustomResetPassword extends Notification
 
         return (new MailMessage)
             ->subject('Penyetelan Ulang Password - HIMAFI UPC 2026')
-            ->view('emails.reset-password', [
+            ->view('email.reset-password', [
                 'url' => $url,
                 'user' => $notifiable
             ]);

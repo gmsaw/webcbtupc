@@ -49,15 +49,27 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // 1. ROUTE DASHBOARD (Gerbang Utama)
     // ------------------------------------------
     Route::get('/dashboard', function () {
-        // Jika yang login adalah Admin HIMAFI
-        if (Auth::user()->email === 'admin@upc.com') {
-            $total_peserta = User::where('email', '!=', 'admin@upc.com')->count();
+        // Daftar email admin dan panitia HIMAFI
+        $admin_emails = [
+            'admin@upc.com',
+            'aridaniswara6@gmail.com',
+            'tambun.24008@student.unud.ac.id',
+            'alvinandaa26@gmail.com',
+            'dinanti.har03@gmail.com',
+            'widnyana.24013@student.unud.ac.id',
+            'nandana.2508521055@student.unud.ac.id'
+        ];
+
+        // Jika yang login ada di dalam daftar admin_emails
+        if (in_array(Auth::user()->email, $admin_emails)) {
+            // Hitung total peserta dengan mengecualikan akun-akun panitia
+            $total_peserta = User::whereNotIn('email', $admin_emails)->count();
             $pending_verifikasi = Registration::where('status_pendaftaran', 'pending')->count();
             $terverifikasi = Registration::where('status_pendaftaran', 'verified')->count();
             return view('admin.dashboard', compact('total_peserta', 'pending_verifikasi', 'terverifikasi'));
         }
 
-        // Jika yang login adalah Peserta (User)
+        // Jika yang login adalah Peserta murni
         $user = Auth::user();
         
         $my_registrations = Registration::with('competition')->where('user_id', $user->id)->orderBy('created_at', 'desc')->get();

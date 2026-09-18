@@ -11,11 +11,36 @@
             Saat ini tidak ada lomba baru yang sedang membuka pendaftaran.
         </div>
     @else
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+        <div x-data="{
+                interval: null,
+                startScroll() {
+                    this.interval = setInterval(() => {
+                        let el = this.$refs.slider;
+                        if(!el) return;
+                        // Jika sudah mentok di kanan, kembali ke awal. Jika belum, geser ke kanan.
+                        if(el.scrollLeft + el.clientWidth >= el.scrollWidth - 10) {
+                            el.scrollTo({ left: 0, behavior: 'smooth' });
+                        } else {
+                            el.scrollBy({ left: el.clientWidth > 300 ? 320 : el.clientWidth * 0.85, behavior: 'smooth' });
+                        }
+                    }, 4000); // 4000 ms = 4 detik (Kecepatan auto-scroll)
+                },
+                stopScroll() {
+                    clearInterval(this.interval);
+                }
+             }"
+             x-init="startScroll()"
+             @mouseenter="stopScroll()"
+             @mouseleave="startScroll()"
+             @touchstart="stopScroll()"
+             @touchend="startScroll()"
+             x-ref="slider"
+             class="flex gap-4 sm:gap-6 overflow-x-auto snap-x snap-mandatory no-scrollbar pb-6 -mx-4 px-4 sm:mx-0 sm:px-0 scroll-smooth">
+            
             @foreach($available_competitions as $comp)
-                <div class="bg-white rounded-3xl border border-gray-100 shadow-sm flex flex-col overflow-hidden hover:shadow-xl transition-shadow group">
+                <div class="w-[85%] sm:w-[calc(50%-0.75rem)] shrink-0 snap-center bg-white rounded-3xl border border-gray-100 shadow-sm flex flex-col overflow-hidden hover:shadow-xl transition-shadow group">
                     
-                    <div class="h-44 relative overflow-hidden bg-gray-200">
+                    <div class="h-44 relative overflow-hidden bg-gray-200 shrink-0">
                         @if($comp->hasMedia('gambar_lomba'))
                             <img src="{{ $comp->getFirstMediaUrl('gambar_lomba') }}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt="{{ $comp->nama_lomba }}">
                         @else
@@ -63,15 +88,7 @@
                         @php
                             $today = \Carbon\Carbon::today();
                             $isOpen = $comp->is_active && $comp->tanggal_mulai && $comp->tanggal_selesai && $today->between($comp->tanggal_mulai, $comp->tanggal_selesai);
-                        @endphp
-
-                        @php
-                            // Ambil harga dinamis (harga gelombang jika ada, atau harga normal jika tidak)
                             $activePrice = $comp->active_price;
-                            
-                            // Syarat bisa daftar:
-                            // 1. $isOpen (Tanggal utama masih berlaku)
-                            // 2. Jika pakai gelombang, $activePrice TIDAK boleh null (harus ada gelombang yang aktif)
                             $canRegister = $isOpen && (!$comp->is_using_waves || !is_null($activePrice));
                         @endphp
 
@@ -86,12 +103,12 @@
                                     }; 
                                     registrationModal = true;
                                 " 
-                                class="w-full bg-cyan-600 hover:bg-blue-700 text-white py-3 rounded-xl font-bold text-sm shadow-md transition-colors transform hover:-translate-y-0.5">
+                                class="w-full bg-cyan-600 hover:bg-blue-700 text-white py-3 rounded-xl font-bold text-sm shadow-md transition-colors transform hover:-translate-y-0.5 mt-auto">
                                 Daftar Sekarang
                             </button>
                         @else
-                            <button type="button" disabled class="w-full bg-gray-100 text-gray-400 border border-gray-200 py-3 rounded-xl font-bold text-sm cursor-not-allowed">
-                                Pendaftaran Belum Buka / Tutup
+                            <button type="button" disabled class="w-full bg-gray-100 text-gray-400 border border-gray-200 py-3 rounded-xl font-bold text-sm cursor-not-allowed mt-auto">
+                                Pendaftaran Tutup
                             </button>
                         @endif
 

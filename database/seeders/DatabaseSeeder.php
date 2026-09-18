@@ -13,15 +13,62 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // 1. Membuat Akun Admin HIMAFI
-        User::create([
-            'name' => 'Admin HIMAFI UPC',
-            'email' => 'admin@upc.com',
-            'password' => Hash::make('password'), // Password default: password
-            'asal_sekolah' => 'Universitas Udayana',
-            'no_wa' => '081234567890',
-            'status_verifikasi' => 'verified', // Admin otomatis terverifikasi
-        ]);
+        // 1. Membuat Akun Admin & Panitia HIMAFI UPC
+        $panitia_list = [
+            [
+                'name' => 'Admin HIMAFI UPC',
+                'email' => 'admin@upc.com',
+                'asal_sekolah' => 'Universitas Udayana',
+                'no_wa' => '081234567890',
+            ],
+            [
+                'name' => 'Panitia Fisika SMA',
+                'email' => 'aridaniswara6@gmail.com',
+                'asal_sekolah' => 'Universitas Udayana',
+                'no_wa' => '080000000001',
+            ],
+            [
+                'name' => 'Panitia Kebumian',
+                'email' => 'tambun.24008@student.unud.ac.id',
+                'asal_sekolah' => 'Universitas Udayana',
+                'no_wa' => '080000000002',
+            ],
+            [
+                'name' => 'Panitia Poster',
+                'email' => 'alvinandaa26@gmail.com',
+                'asal_sekolah' => 'Universitas Udayana',
+                'no_wa' => '080000000003',
+            ],
+            [
+                'name' => 'Panitia Astronomi',
+                'email' => 'dinanti.har03@gmail.com',
+                'asal_sekolah' => 'Universitas Udayana',
+                'no_wa' => '080000000004',
+            ],
+            [
+                'name' => 'Panitia Sains SD',
+                'email' => 'widnyana.24013@student.unud.ac.id',
+                'asal_sekolah' => 'Universitas Udayana',
+                'no_wa' => '080000000005',
+            ],
+            [
+                'name' => 'Panitia Fisika SMP',
+                'email' => 'nandana.2508521055@student.unud.ac.id',
+                'asal_sekolah' => 'Universitas Udayana',
+                'no_wa' => '080000000006',
+            ],
+        ];
+
+        foreach ($panitia_list as $panitia) {
+            User::create([
+                'name' => $panitia['name'],
+                'email' => $panitia['email'],
+                'password' => Hash::make('password'), // Password default: password
+                'asal_sekolah' => $panitia['asal_sekolah'],
+                'no_wa' => $panitia['no_wa'],
+                'status_verifikasi' => 'verified', // Admin otomatis terverifikasi
+            ]);
+        }
 
         // 2. Membuat Beberapa Akun Peserta Dummy (Status Pending)
         $peserta_dummies = [
@@ -123,5 +170,7 @@ class DatabaseSeeder extends Seeder
         //     PaymentSeeder::class,
         //     ExamResultSeeder::class,
         // ]);
+        
+        $this->command->info('Database berhasil di-seeding! Akun Panitia & Peserta siap digunakan.');
     }
 }

@@ -14,7 +14,7 @@ class CbtController extends Controller
     public function prepare(Registration $registration)
     {
         // Keamanan dasar
-        if ($registration->user_id !== auth()->id() || $registration->status_pendaftaran !== 'verified') {
+        if ((int)$registration->user_id !== (int)auth()->id() || strtolower($registration->status_pendaftaran) !== 'verified') {
             return redirect()->route('dashboard')->with('error', 'Akses ditolak. Anda belum diverifikasi.');
         }
 
@@ -37,7 +37,7 @@ class CbtController extends Controller
     // 2. Menampilkan Ujian
     public function show(Registration $registration)
     {
-        if ($registration->user_id !== auth()->id() || $registration->status_pendaftaran !== 'verified') {
+        if ((int)$registration->user_id !== auth()->id() || $registration->status_pendaftaran !== 'verified') {
             return redirect()->route('dashboard')->with('error', 'Akses ditolak.');
         }
         
@@ -91,7 +91,7 @@ class CbtController extends Controller
     public function autosave(Request $request, Registration $registration)
     {
         // Mencegah kecurangan
-        if ($registration->user_id !== auth()->id() || ($registration->examResult && $registration->examResult->status === 'finished')) {
+        if ((int)$registration->user_id !== auth()->id() || ($registration->examResult && $registration->examResult->status === 'finished')) {
             return response()->json(['status' => 'error'], 403);
         }
 
@@ -121,7 +121,7 @@ class CbtController extends Controller
     // 4. Memproses Jawaban & Menghitung Nilai Otomatis (Tabel Baru)
     public function submit(Request $request, Registration $registration)
     {
-        if ($registration->user_id !== auth()->id() || ($registration->examResult && $registration->examResult->status === 'finished')) {
+        if ((int)$registration->user_id !== auth()->id() || ($registration->examResult && $registration->examResult->status === 'finished')) {
             return redirect()->route('dashboard');
         }
 
