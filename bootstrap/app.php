@@ -3,6 +3,7 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use App\Http\Middleware\CheckExamAccess;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -17,6 +18,10 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->validateCsrfTokens(except: [
             'api/payment-callback',
+        ]);
+
+        $middleware->alias([
+            'check.exam.access' => \App\Http\Middleware\CheckExamAccess::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

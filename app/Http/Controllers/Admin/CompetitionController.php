@@ -287,6 +287,25 @@ class CompetitionController extends Controller
         return view('admin.kompetisi.show', compact('competition'));
     }
 
+    public function isRegistrationClosed(): bool
+    {
+        $now = now();
+
+        if ($this->is_using_waves) {
+            $lastWave = $this->waves()->orderByDesc('end_date')->first();
+            if (!$lastWave || !$lastWave->end_date) {
+                return false;
+            }
+            return \Carbon\Carbon::parse($lastWave->end_date)->lt($now);
+        }
+
+        if (!$this->tanggal_selesai) {
+            return false;
+        }
+
+        return \Carbon\Carbon::parse($this->tanggal_selesai)->lt($now);
+    }
+
     // Method untuk toggle status aktif (opsional)
     public function toggleActive(Competition $competition)
     {

@@ -21,8 +21,10 @@
     </x-slot>
 
     <div class="py-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        
-        {{-- Statistik Header --}}
+
+        {{-- ============================================================ --}}
+        {{-- STATISTIK HEADER --}}
+        {{-- ============================================================ --}}
         <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-8">
             <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition-all">
                 <div class="flex items-center gap-3">
@@ -92,45 +94,54 @@
             </div>
         </div>
 
-        {{-- Grid Kompetisi --}}
+        {{-- ============================================================ --}}
+        {{-- GRID KOMPETISI --}}
+        {{-- ============================================================ --}}
         <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
             @forelse($competitions as $comp)
                 @php
                     $now = \Carbon\Carbon::now();
-                    
-                    // Cek tanggal pendaftaran
-                    $registrationStart = $comp->tanggal_mulai ? \Carbon\Carbon::parse($comp->tanggal_mulai) : null;
-                    $registrationEnd = $comp->tanggal_selesai ? \Carbon\Carbon::parse($comp->tanggal_selesai) : null;
-                    
-                    // Cek waktu pelaksanaan
-                    $examStart = $comp->waktu_pelaksanaan ? \Carbon\Carbon::parse($comp->waktu_pelaksanaan) : null;
-                    $examEnd = $examStart && $comp->durasi_menit ? $examStart->copy()->addMinutes((int)$comp->durasi_menit) : null;
-                    
-                    // Status dengan logika yang benar
+
+                    // Tanggal pendaftaran
+                    $registrationStart = $comp->tanggal_mulai
+                        ? \Carbon\Carbon::parse($comp->tanggal_mulai)
+                        : null;
+                    $registrationEnd = $comp->tanggal_selesai
+                        ? \Carbon\Carbon::parse($comp->tanggal_selesai)
+                        : null;
+
+                    // Waktu pelaksanaan ujian
+                    $examStart = $comp->waktu_pelaksanaan
+                        ? \Carbon\Carbon::parse($comp->waktu_pelaksanaan)
+                        : null;
+                    $examEnd = $examStart && $comp->durasi_menit
+                        ? $examStart->copy()->addMinutes((int) $comp->durasi_menit)
+                        : null;
+
+                    // ── STATUS ──
                     $isActive = false;
                     $isRegistrationOpen = false;
                     $isExamEnded = false;
                     $isRegistrationClosed = false;
                     $isUpcoming = false;
-                    
+
                     if ($registrationStart && $registrationEnd) {
-                        $isRegistrationOpen = $now->between($registrationStart, $registrationEnd);
+                        $isRegistrationOpen   = $now->between($registrationStart, $registrationEnd);
                         $isRegistrationClosed = $now->gt($registrationEnd);
-                        $isUpcoming = $now->lt($registrationStart);
+                        $isUpcoming           = $now->lt($registrationStart);
                     }
-                    
+
                     if ($examEnd) {
                         $isExamEnded = $now->gt($examEnd);
                     }
-                    
-                    // Aktif jika: lomba aktif, pendaftaran terbuka, dan belum berakhir
+
                     $isActive = $comp->is_active && $isRegistrationOpen && !$isExamEnded;
-                    
-                    // Badge status
+
+                    // ── BADGE ──
                     $statusBadge = '';
                     $headerGradient = '';
                     $icon = '';
-                    
+
                     if ($isActive) {
                         $statusBadge = '<span class="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500 text-white rounded-full text-xs font-bold shadow-lg"><span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>Aktif</span>';
                         $headerGradient = 'from-emerald-500 to-teal-500';
@@ -152,35 +163,47 @@
                         $headerGradient = 'from-gray-400 to-gray-500';
                         $icon = '📌';
                     }
+
+                    // ── STATISTIK PESERTA ──
+                    $totalPendaftar    = $comp->registrations_count ?? 0;
+                    $totalTerverifikasi = $comp->registrations()
+                        ->where('status_pendaftaran', 'verified')
+                        ->count();
+                    $totalSelesaiUjian = $comp->registrations()
+                        ->whereHas('examResult', function ($q) {
+                            $q->where('status', 'finished');
+                        })
+                        ->count();
+
+                    // Progress verifikasi
+                    $progressVerifikasi = $totalPendaftar > 0
+                        ? round(($totalTerverifikasi / $totalPendaftar) * 100)
+                        : 0;
                 @endphp
 
                 <div class="group bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-                    
-                    {{-- Card Header with Gradient & Image --}}
+
+                    {{-- ── CARD HEADER ── --}}
                     <div class="relative h-28 bg-gradient-to-r {{ $headerGradient }}">
-                        
-                        {{-- Background Image --}}
+
                         @if($comp->hasMedia('gambar_lomba'))
                             <div class="absolute inset-0">
-                                <img src="{{ $comp->getFirstMediaUrl('gambar_lomba') }}" 
-                                     alt="{{ $comp->nama_lomba }}" 
+                                <img src="{{ $comp->getFirstMediaUrl('gambar_lomba') }}"
+                                     alt="{{ $comp->nama_lomba }}"
                                      class="w-full h-full object-cover">
                                 <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-black/10"></div>
                             </div>
                         @endif
-                        
-                        {{-- Dekorasi --}}
+
                         <div class="absolute inset-0 opacity-10">
                             <svg class="absolute -top-10 -right-10 w-32 h-32 text-white" fill="currentColor" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50"/></svg>
                             <svg class="absolute -bottom-10 -left-10 w-24 h-24 text-white" fill="currentColor" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50"/></svg>
                         </div>
-                        
-                        {{-- Status Badge --}}
+
                         <div class="absolute top-3 right-3 z-10">
                             {!! $statusBadge !!}
                         </div>
 
-                        {{-- Icon --}}
                         <div class="absolute -bottom-7 left-6 z-10">
                             <div class="w-14 h-14 rounded-2xl bg-white shadow-lg flex items-center justify-center text-2xl border-2 border-white">
                                 {{ $icon }}
@@ -188,58 +211,103 @@
                         </div>
                     </div>
 
-                    {{-- Card Body --}}
+                    {{-- ── CARD BODY ── --}}
                     <div class="pt-9 px-6 pb-6">
                         <h3 class="font-bold text-lg text-gray-900 mb-1 pr-20 line-clamp-2 leading-tight">
                             {{ $comp->nama_lomba }}
                         </h3>
-                        
+
                         <p class="text-sm text-gray-500 mb-4 line-clamp-2 min-h-[40px]">
                             {{ $comp->deskripsi ?: 'Tidak ada deskripsi' }}
                         </p>
 
+                        {{-- Tanggal --}}
                         <div class="flex flex-wrap items-center gap-3 text-sm text-gray-500 mb-4 pb-4 border-b border-gray-100">
-                            <span class="inline-flex items-center gap-1.5">
-                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                                {{ $comp->registrations_count }} Pendaftar
-                            </span>
                             <span class="inline-flex items-center gap-1.5">
                                 <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                                 {{ $comp->tanggal_mulai ? \Carbon\Carbon::parse($comp->tanggal_mulai)->format('d/m/Y') : '-' }}
                             </span>
+                            <span class="text-gray-300">→</span>
                             <span class="inline-flex items-center gap-1.5">
                                 <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                                 {{ $comp->tanggal_selesai ? \Carbon\Carbon::parse($comp->tanggal_selesai)->format('d/m/Y') : '-' }}
                             </span>
                         </div>
-                        
+
+                        {{-- ── STATISTIK PESERTA ── --}}
+                        <div class="grid grid-cols-3 gap-2 mb-4">
+                            <div class="bg-gray-50 rounded-xl p-2.5 text-center border border-gray-100">
+                                <p class="text-lg font-black text-gray-800">{{ $totalPendaftar }}</p>
+                                <p class="text-[10px] text-gray-500 font-bold uppercase tracking-wide">Pendaftar</p>
+                            </div>
+                            <div class="bg-emerald-50 rounded-xl p-2.5 text-center border border-emerald-100">
+                                <p class="text-lg font-black text-emerald-700">{{ $totalTerverifikasi }}</p>
+                                <p class="text-[10px] text-emerald-600 font-bold uppercase tracking-wide">Verified</p>
+                            </div>
+                            <div class="bg-indigo-50 rounded-xl p-2.5 text-center border border-indigo-100">
+                                <p class="text-lg font-black text-indigo-700">{{ $totalSelesaiUjian }}</p>
+                                <p class="text-[10px] text-indigo-600 font-bold uppercase tracking-wide">Selesai</p>
+                            </div>
+                        </div>
+
+                        {{-- ── PROGRESS BAR ── --}}
+                        @if($totalPendaftar > 0)
+                            <div class="mb-4">
+                                <div class="flex items-center justify-between mb-1.5">
+                                    <span class="text-[10px] font-bold text-gray-500 uppercase tracking-wide">Progress Verifikasi</span>
+                                    <span class="text-[10px] font-black text-gray-700">{{ $progressVerifikasi }}%</span>
+                                </div>
+                                <div class="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                                    <div class="bg-gradient-to-r from-emerald-400 to-emerald-600 h-1.5 rounded-full transition-all"
+                                         style="width: {{ $progressVerifikasi }}%"></div>
+                                </div>
+                            </div>
+                        @endif
+
+                        {{-- ── AKSI ── --}}
                         <div class="space-y-2">
-                            <a href="{{ route('admin.verifikasi.show', $comp->id) }}" 
+                            {{-- Kelola & Verifikasi --}}
+                            <a href="{{ route('admin.verifikasi.show', $comp->id) }}"
                                class="flex items-center justify-center w-full py-2.5 bg-indigo-50 hover:bg-indigo-600 text-indigo-700 hover:text-white rounded-xl text-sm font-bold transition-all duration-300 shadow-sm hover:shadow-lg gap-2 group">
                                 <svg class="w-4 h-4 transition-transform group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                                 Kelola & Verifikasi
-                                @if($comp->registrations_count > 0)
-                                    <span class="bg-indigo-600 text-white text-[10px] px-2 py-0.5 rounded-full group-hover:bg-white group-hover:text-indigo-600 transition">{{ $comp->registrations_count }}</span>
+                                @if($totalPendaftar > 0)
+                                    <span class="bg-indigo-600 text-white text-[10px] px-2 py-0.5 rounded-full group-hover:bg-white group-hover:text-indigo-600 transition">{{ $totalPendaftar }}</span>
                                 @endif
                             </a>
-                            
+
+                            {{-- Tombol Aksi --}}
                             <div class="flex gap-2">
-                                <a href="{{ route('admin.kompetisi.export', $comp->id) }}" 
-                                   class="flex-1 flex items-center justify-center gap-1.5 py-2 bg-gray-50 hover:bg-gray-800 hover:text-white text-gray-600 rounded-xl text-xs font-bold transition-all duration-300 border border-gray-200">
+                                {{-- Export CSV Peserta --}}
+                                <a href="{{ route('admin.kompetisi.export', $comp->id) }}"
+                                   class="flex-1 flex items-center justify-center gap-1.5 py-2 bg-gray-50 hover:bg-gray-800 hover:text-white text-gray-600 rounded-xl text-xs font-bold transition-all duration-300 border border-gray-200"
+                                   title="Export CSV Peserta">
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                                    CSV
+                                    Peserta
                                 </a>
 
-                                @if($isExamEnded || $isRegistrationClosed)
-                                    <a href="{{ route('admin.kompetisi.ranking', $comp->id) }}" 
-                                       class="flex-1 flex items-center justify-center gap-1.5 py-2 bg-amber-50 hover:bg-amber-500 hover:text-white text-amber-700 rounded-xl text-xs font-bold transition-all duration-300 border border-amber-200">
+                                {{-- Export CSV Jawaban Mentah --}}
+                                <a href="{{ route('admin.kompetisi.jawaban.export', $comp->id) }}"
+                                   class="flex-1 flex items-center justify-center gap-1.5 py-2 bg-emerald-50 hover:bg-emerald-600 hover:text-white text-emerald-700 rounded-xl text-xs font-bold transition-all duration-300 border border-emerald-200"
+                                   title="Export CSV Jawaban Semua Peserta">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                    Jawaban
+                                </a>
+
+                                {{-- Ranking --}}
+                                @if($isRegistrationClosed)
+                                    <a href="{{ route('admin.kompetisi.ranking', $comp->id) }}"
+                                       class="flex-1 flex items-center justify-center gap-1.5 py-2 bg-amber-50 hover:bg-amber-500 hover:text-white text-amber-700 rounded-xl text-xs font-bold transition-all duration-300 border border-amber-200"
+                                       title="Lihat Ranking">
                                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
                                         Ranking
                                     </a>
                                 @endif
 
-                                <a href="{{ route('admin.kompetisi.edit', $comp->id) }}" 
-                                   class="flex-1 flex items-center justify-center gap-1.5 py-2 bg-gray-50 hover:bg-indigo-600 hover:text-white text-gray-600 rounded-xl text-xs font-bold transition-all duration-300 border border-gray-200">
+                                {{-- Edit --}}
+                                <a href="{{ route('admin.kompetisi.edit', $comp->id) }}"
+                                   class="flex-1 flex items-center justify-center gap-1.5 py-2 bg-gray-50 hover:bg-indigo-600 hover:text-white text-gray-600 rounded-xl text-xs font-bold transition-all duration-300 border border-gray-200"
+                                   title="Edit Lomba">
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                                     Edit
                                 </a>
@@ -248,6 +316,7 @@
                     </div>
                 </div>
             @empty
+                {{-- ── KOSONG ── --}}
                 <div class="col-span-full text-center py-16">
                     <div class="w-24 h-24 mx-auto bg-gray-100 rounded-full flex items-center justify-center mb-4">
                         <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
@@ -264,7 +333,7 @@
 
     </div>
 
-    {{-- CSS Tambahan --}}
+    {{-- ── CSS TAMBAHAN ── --}}
     <style>
         .line-clamp-2 {
             display: -webkit-box;
@@ -272,16 +341,16 @@
             -webkit-box-orient: vertical;
             overflow: hidden;
         }
-        
+
         .animate-pulse {
             animation: pulse 1.5s ease-in-out infinite;
         }
-        
+
         @keyframes pulse {
             0%, 100% { opacity: 1; transform: scale(1); }
             50% { opacity: 0.5; transform: scale(0.8); }
         }
-        
+
         .group:hover .group-hover\:scale-110 {
             transform: scale(1.1);
         }

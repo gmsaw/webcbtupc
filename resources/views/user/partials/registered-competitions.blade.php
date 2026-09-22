@@ -139,10 +139,11 @@
                                     @if($isVerified && $isFinished)
                                         {{-- Hasil Ujian --}}
                                         <div class="px-4 py-2 bg-emerald-50 border border-emerald-200 rounded-xl text-center min-w-[140px]">
-                                            <span class="text-xs font-medium text-emerald-600">Ujian Selesai</span>
+                                            <!-- <span class="text-xs font-medium text-emerald-600">Ujian Selesai</span> -->
                                             <p class="text-xl font-black text-emerald-700 mt-0.5">
-                                                {{ $reg->examResult->score ?? 0 }}
-                                                <span class="text-xs font-normal text-emerald-500">/ 100</span>
+                                                <!-- {{ $reg->examResult->score ?? 0 }} -->
+                                                Ujian Selesai
+                                                <span class="text-xs font-normal text-emerald-500"></span>
                                             </p>
                                         </div>
 
