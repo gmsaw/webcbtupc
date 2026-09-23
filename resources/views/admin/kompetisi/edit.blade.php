@@ -13,7 +13,7 @@
     <div class="py-10">
         <div class="max-w-5xl mx-auto sm:px-6 lg:px-8">
             <div class="bg-white rounded-3xl border border-gray-100 shadow-sm p-8">
-                
+
                 {{-- Error Alerts --}}
                 @if ($errors->any() || session('error'))
                     <div class="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-xl">
@@ -40,8 +40,10 @@
                     @method('PUT')
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        
-                        {{-- Kolom Kiri --}}
+
+                        {{-- ═══════════════════════════════════════════════════════════ --}}
+                        {{-- KOLOM KIRI --}}
+                        {{-- ═══════════════════════════════════════════════════════════ --}}
                         <div class="space-y-6">
                             <div>
                                 <x-input-label for="nama_lomba" value="Nama Kompetisi" />
@@ -66,7 +68,7 @@
                                 if (empty($wavesData)) $wavesData = [['nama_gelombang' => '', 'start_date' => '', 'end_date' => '', 'biaya' => '']];
                             @endphp
 
-                            <div x-data="{ 
+                            <div x-data="{
                                 isUsingWaves: {{ old('is_using_waves', $competition->is_using_waves) ? 'true' : 'false' }},
                                 waves: {{ json_encode(old('waves', $wavesData)) }}
                             }" class="p-5 bg-slate-50 rounded-2xl border border-slate-200">
@@ -120,8 +122,12 @@
                             </div>
                         </div>
 
-                        {{-- Kolom Kanan --}}
+                        {{-- ═══════════════════════════════════════════════════════════ --}}
+                        {{-- KOLOM KANAN --}}
+                        {{-- ═══════════════════════════════════════════════════════════ --}}
                         <div class="space-y-6">
+
+                            {{-- Tanggal Pendaftaran --}}
                             <div class="grid grid-cols-2 gap-4 bg-indigo-50/50 p-4 rounded-2xl border border-indigo-50">
                                 <div>
                                     <x-input-label for="tanggal_mulai" value="Tgl Buka Daftar" />
@@ -135,16 +141,71 @@
                                 </div>
                             </div>
 
-                            <div class="grid grid-cols-2 gap-4 bg-orange-50/50 p-4 rounded-2xl border border-orange-50">
-                                <div>
-                                    <x-input-label for="waktu_pelaksanaan" value="Waktu Pelaksanaan" />
-                                    <x-text-input id="waktu_pelaksanaan" name="waktu_pelaksanaan" type="datetime-local" class="mt-1 block w-full rounded-xl text-sm @error('waktu_pelaksanaan') border-red-500 @enderror" required value="{{ old('waktu_pelaksanaan', $competition->waktu_pelaksanaan instanceof \Carbon\Carbon ? $competition->waktu_pelaksanaan->format('Y-m-d\TH:i') : '') }}" />
-                                    @error('waktu_pelaksanaan') <p class="mt-2 text-sm text-red-600">{{ $message }}</p> @enderror
+                            {{-- ═══════════════════════════════════════════════════════ --}}
+                            {{-- JADWAL UJIAN PER BABAK --}}
+                            {{-- ═══════════════════════════════════════════════════════ --}}
+                            <div class="p-4 bg-orange-50/50 rounded-2xl border border-orange-100 space-y-3">
+                                <div class="flex items-center gap-2">
+                                    <svg class="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                    <h4 class="text-sm font-bold text-slate-800">Jadwal Ujian per Babak</h4>
                                 </div>
-                                <div>
-                                    <x-input-label for="durasi_menit" value="Durasi (Menit)" />
-                                    <x-text-input id="durasi_menit" name="durasi_menit" type="number" class="mt-1 block w-full rounded-xl text-sm @error('durasi_menit') border-red-500 @enderror" required min="1" value="{{ old('durasi_menit', $competition->durasi_menit) }}" />
-                                    @error('durasi_menit') <p class="mt-2 text-sm text-red-600">{{ $message }}</p> @enderror
+                                <p class="text-xs text-slate-500">Atur waktu mulai ujian untuk masing-masing babak</p>
+
+                                {{-- PENYISIHAN --}}
+                                <div class="bg-white p-3 rounded-xl border border-gray-200">
+                                    <div class="flex items-center gap-2 mb-2">
+                                        <span class="w-2 h-2 rounded-full bg-gray-400"></span>
+                                        <span class="text-[11px] font-bold text-gray-700 uppercase tracking-wider">Penyisihan</span>
+                                        <span class="text-[10px] text-red-500 font-bold">*Wajib</span>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <div>
+                                            <label class="text-[10px] font-bold text-slate-500 uppercase">Waktu Mulai</label>
+                                            <input type="datetime-local" name="waktu_pelaksanaan" required 
+                                                value="{{ old('waktu_pelaksanaan', $competition->waktu_pelaksanaan instanceof \Carbon\Carbon ? $competition->waktu_pelaksanaan->format('Y-m-d\TH:i') : '') }}" 
+                                                class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm text-xs py-1.5 @error('waktu_pelaksanaan') border-red-500 @enderror">
+                                            @error('waktu_pelaksanaan') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                                        </div>
+                                        <div>
+                                            <label class="text-[10px] font-bold text-slate-500 uppercase">Durasi (Menit)</label>
+                                            <input type="number" name="durasi_menit" required min="1" 
+                                                value="{{ old('durasi_menit', $competition->durasi_menit) }}" 
+                                                class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm text-xs py-1.5 @error('durasi_menit') border-red-500 @enderror">
+                                            @error('durasi_menit') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {{-- SEMIFINAL --}}
+                                <div class="bg-blue-50 p-3 rounded-xl border border-blue-100">
+                                    <div class="flex items-center gap-2 mb-2">
+                                        <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+                                        <span class="text-[11px] font-bold text-blue-700 uppercase tracking-wider">Semifinal</span>
+                                        <span class="text-[10px] text-blue-500 font-medium">(Opsional)</span>
+                                    </div>
+                                    <div>
+                                        <label class="text-[10px] font-bold text-slate-500 uppercase">Waktu Mulai</label>
+                                        <input type="datetime-local" name="waktu_pelaksanaan_semifinal" 
+                                            value="{{ old('waktu_pelaksanaan_semifinal', $competition->waktu_pelaksanaan_semifinal instanceof \Carbon\Carbon ? $competition->waktu_pelaksanaan_semifinal->format('Y-m-d\TH:i') : '') }}" 
+                                            class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm text-xs py-1.5 @error('waktu_pelaksanaan_semifinal') border-red-500 @enderror">
+                                        @error('waktu_pelaksanaan_semifinal') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                                    </div>
+                                </div>
+
+                                {{-- FINAL --}}
+                                <div class="bg-purple-50 p-3 rounded-xl border border-purple-100">
+                                    <div class="flex items-center gap-2 mb-2">
+                                        <span class="w-2 h-2 rounded-full bg-purple-500"></span>
+                                        <span class="text-[11px] font-bold text-purple-700 uppercase tracking-wider">Final</span>
+                                        <span class="text-[10px] text-purple-500 font-medium">(Opsional)</span>
+                                    </div>
+                                    <div>
+                                        <label class="text-[10px] font-bold text-slate-500 uppercase">Waktu Mulai</label>
+                                        <input type="datetime-local" name="waktu_pelaksanaan_final" 
+                                            value="{{ old('waktu_pelaksanaan_final', $competition->waktu_pelaksanaan_final instanceof \Carbon\Carbon ? $competition->waktu_pelaksanaan_final->format('Y-m-d\TH:i') : '') }}" 
+                                            class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm text-xs py-1.5 @error('waktu_pelaksanaan_final') border-red-500 @enderror">
+                                        @error('waktu_pelaksanaan_final') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                                    </div>
                                 </div>
                             </div>
 

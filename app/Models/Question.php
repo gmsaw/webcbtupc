@@ -12,7 +12,7 @@ class Question extends Model implements HasMedia
     use HasFactory, InteractsWithMedia;
 
     protected $fillable = [
-        'competition_id', 'pertanyaan', 'opsi_a', 'opsi_b', 
+        'competition_id', 'babak', 'pertanyaan', 'opsi_a', 'opsi_b', 
         'opsi_c', 'opsi_d', 'opsi_e', 'jawaban_benar', 'bobot_nilai'
     ];
 

@@ -15,7 +15,7 @@
     </x-slot>
 
     <div class="py-10 max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-8" x-data="{ addModal: false }">
-        
+
         @if(session('success'))
             <div class="p-4 bg-green-50 border border-green-200 text-green-700 rounded-2xl shadow-sm flex items-center gap-3">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
@@ -23,9 +23,29 @@
             </div>
         @endif
 
+        {{-- ── TAB BABAK ── --}}
+        <div class="bg-white rounded-2xl p-2 shadow-sm border border-gray-100 inline-flex gap-1">
+            @foreach(['penyisihan' => 'Penyisihan', 'semifinal' => 'Semifinal', 'final' => 'Final'] as $key => $label)
+                <a href="{{ route('admin.kompetisi.soal.index', ['competition' => $competition->id, 'babak' => $key]) }}"
+                   class="px-5 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2
+                          {{ $babak === $key
+                              ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
+                              : 'text-gray-600 hover:bg-gray-100' }}">
+                    {{ $label }}
+                    <span class="text-xs px-2 py-0.5 rounded-full font-black
+                                 {{ $babak === $key ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-600' }}">
+                        {{ $stats[$key] ?? 0 }}
+                    </span>
+                </a>
+            @endforeach
+        </div>
+
         <div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
             <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-                <h3 class="font-bold text-gray-800 text-lg">Daftar Pertanyaan ({{ $questions->count() }})</h3>
+                <h3 class="font-bold text-gray-800 text-lg">
+                    Daftar Soal Babak <span class="text-blue-600 capitalize">{{ $babak }}</span>
+                    ({{ $questions->count() }})
+                </h3>
                 <button @click="addModal = true" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-sm flex items-center gap-2 transition">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                     Tambah Soal Baru
@@ -52,9 +72,9 @@
                                         <img src="{{ $q->getFirstMediaUrl('gambar_soal') }}" class="w-full h-auto">
                                     </div>
                                 @endif
-                                
+
                                 <p class="font-semibold text-gray-900 mb-4 whitespace-pre-wrap">{{ $q->pertanyaan }}</p>
-                                
+
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
                                     <div class="p-2 rounded-lg border {{ $q->jawaban_benar == 'A' ? 'bg-green-50 border-green-400 font-bold text-green-800' : 'border-gray-200 text-gray-600' }}">A. {{ $q->opsi_a }}</div>
                                     <div class="p-2 rounded-lg border {{ $q->jawaban_benar == 'B' ? 'bg-green-50 border-green-400 font-bold text-green-800' : 'border-gray-200 text-gray-600' }}">B. {{ $q->opsi_b }}</div>
@@ -70,29 +90,34 @@
                 @empty
                     <div class="text-center py-10 text-gray-400">
                         <svg class="w-12 h-12 mx-auto mb-3 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
-                        <p>Belum ada soal untuk kompetisi ini.</p>
+                        <p>Belum ada soal untuk babak <b class="capitalize">{{ $babak }}</b>.</p>
                     </div>
                 @endforelse
             </div>
         </div>
 
+        {{-- ── MODAL TAMBAH SOAL ── --}}
         <div x-show="addModal" style="display: none;" class="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center px-4 pt-4 pb-20 sm:p-0">
             <div x-show="addModal" class="fixed inset-0 bg-gray-900/75 backdrop-blur-sm" @click="addModal = false"></div>
-            
+
             <div x-show="addModal" class="relative bg-white rounded-3xl text-left overflow-hidden shadow-2xl w-full max-w-3xl border border-gray-100 z-10">
                 <div class="bg-blue-600 px-6 py-4 flex justify-between items-center text-white">
-                    <h3 class="text-lg font-bold">Input Soal Baru</h3>
+                    <h3 class="text-lg font-bold">Input Soal Baru — Babak <span class="capitalize">{{ $babak }}</span></h3>
                     <button @click="addModal = false" class="text-blue-200 hover:text-white"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
                 </div>
-                
+
                 <form action="{{ route('admin.kompetisi.soal.store', $competition->id) }}" method="POST" enctype="multipart/form-data" class="p-6">
                     @csrf
+
+                    {{-- Hidden babak — otomatis dari tab aktif --}}
+                    <input type="hidden" name="babak" value="{{ $babak }}">
+
                     <div class="space-y-4">
                         <div>
                             <label class="block text-sm font-bold text-gray-700 mb-1">Pertanyaan <span class="text-red-500">*</span></label>
                             <textarea name="pertanyaan" rows="3" required class="w-full rounded-xl border-gray-300 focus:border-blue-500 focus:ring focus:ring-blue-200 shadow-sm"></textarea>
                         </div>
-                        
+
                         <div>
                             <label class="block text-sm font-bold text-gray-700 mb-1">Gambar Pendukung (Opsional)</label>
                             <input type="file" name="gambar_soal" accept="image/*" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 border border-gray-200 rounded-xl cursor-pointer">
@@ -138,7 +163,7 @@
                             </div>
                         </div>
                     </div>
-                    
+
                     <div class="mt-6 flex justify-end gap-3 border-t border-gray-100 pt-4">
                         <button type="button" @click="addModal = false" class="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition">Batal</button>
                         <button type="submit" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-md transition">Simpan Soal</button>

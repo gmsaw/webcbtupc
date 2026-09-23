@@ -11,7 +11,7 @@
     <div class="py-10">
         <div class="max-w-5xl mx-auto sm:px-6 lg:px-8">
             <div class="bg-white rounded-3xl border border-gray-100 shadow-sm p-8">
-                
+
                 {{-- Error Alerts --}}
                 @if ($errors->any() || session('error'))
                     <div class="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-xl">
@@ -70,31 +70,31 @@
                                 </div>
 
                                 <div x-show="isUsingWaves" x-transition style="display:none;" class="space-y-4">
-                                <template x-for="(wave, index) in waves" :key="index">
-                                    <div class="flex flex-col gap-3 p-4 bg-white border border-indigo-100 rounded-xl shadow-sm relative">
-                                        <button type="button" @click="waves.splice(index, 1)" x-show="waves.length > 1" class="absolute -top-2 -right-2 w-7 h-7 bg-red-100 text-red-600 hover:bg-red-600 hover:text-white rounded-full flex items-center justify-center transition shadow-sm">
-                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                                        </button>
-                                        <div>
-                                            <label class="text-[11px] font-bold text-slate-500 uppercase">Nama Gelombang</label>
-                                            <input type="text" x-bind:name="'waves[' + index + '][nama_gelombang]'" x-model="waves[index].nama_gelombang" placeholder="Cth: Early Bird" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm text-sm py-1.5" :required="isUsingWaves">
-                                        </div>
-                                        <div class="grid grid-cols-2 gap-3">
+                                    <template x-for="(wave, index) in waves" :key="index">
+                                        <div class="flex flex-col gap-3 p-4 bg-white border border-indigo-100 rounded-xl shadow-sm relative">
+                                            <button type="button" @click="waves.splice(index, 1)" x-show="waves.length > 1" class="absolute -top-2 -right-2 w-7 h-7 bg-red-100 text-red-600 hover:bg-red-600 hover:text-white rounded-full flex items-center justify-center transition shadow-sm">
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                            </button>
                                             <div>
-                                                <label class="text-[11px] font-bold text-slate-500 uppercase">Tgl Mulai</label>
-                                                <input type="datetime-local" x-bind:name="'waves[' + index + '][start_date]'" x-model="waves[index].start_date" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm text-xs py-1.5" :required="isUsingWaves">
+                                                <label class="text-[11px] font-bold text-slate-500 uppercase">Nama Gelombang</label>
+                                                <input type="text" x-bind:name="'waves[' + index + '][nama_gelombang]'" x-model="waves[index].nama_gelombang" placeholder="Cth: Early Bird" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm text-sm py-1.5" :required="isUsingWaves">
+                                            </div>
+                                            <div class="grid grid-cols-2 gap-3">
+                                                <div>
+                                                    <label class="text-[11px] font-bold text-slate-500 uppercase">Tgl Mulai</label>
+                                                    <input type="datetime-local" x-bind:name="'waves[' + index + '][start_date]'" x-model="waves[index].start_date" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm text-xs py-1.5" :required="isUsingWaves">
+                                                </div>
+                                                <div>
+                                                    <label class="text-[11px] font-bold text-slate-500 uppercase">Tgl Berakhir</label>
+                                                    <input type="datetime-local" x-bind:name="'waves[' + index + '][end_date]'" x-model="waves[index].end_date" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm text-xs py-1.5" :required="isUsingWaves">
+                                                </div>
                                             </div>
                                             <div>
-                                                <label class="text-[11px] font-bold text-slate-500 uppercase">Tgl Berakhir</label>
-                                                <input type="datetime-local" x-bind:name="'waves[' + index + '][end_date]'" x-model="waves[index].end_date" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm text-xs py-1.5" :required="isUsingWaves">
+                                                <label class="text-[11px] font-bold text-slate-500 uppercase">Biaya (Rp)</label>
+                                                <input type="number" x-bind:name="'waves[' + index + '][biaya]'" x-model="waves[index].biaya" placeholder="150000" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm text-sm py-1.5" :required="isUsingWaves">
                                             </div>
                                         </div>
-                                        <div>
-                                            <label class="text-[11px] font-bold text-slate-500 uppercase">Biaya (Rp)</label>
-                                            <input type="number" x-bind:name="'waves[' + index + '][biaya]'" x-model="waves[index].biaya" placeholder="150000" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm text-sm py-1.5" :required="isUsingWaves">
-                                        </div>
-                                    </div>
-                                </template>
+                                    </template>
                                     <button type="button" @click="waves.push({ nama_gelombang: '', start_date: '', end_date: '', biaya: '' })" class="w-full py-2.5 bg-indigo-50 text-indigo-600 border border-indigo-200 hover:bg-indigo-600 hover:text-white rounded-xl text-xs font-bold transition shadow-sm flex items-center justify-center gap-2">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                                         Tambah Gelombang
@@ -106,6 +106,7 @@
 
                         {{-- Kolom Kanan --}}
                         <div class="space-y-6">
+                            {{-- Tanggal Pendaftaran --}}
                             <div class="grid grid-cols-2 gap-4 bg-indigo-50/50 p-4 rounded-2xl border border-indigo-50">
                                 <div>
                                     <x-input-label for="tanggal_mulai" value="Tgl Buka Daftar" />
@@ -119,16 +120,63 @@
                                 </div>
                             </div>
 
-                            <div class="grid grid-cols-2 gap-4 bg-orange-50/50 p-4 rounded-2xl border border-orange-50">
-                                <div>
-                                    <x-input-label for="waktu_pelaksanaan" value="Waktu Pelaksanaan" />
-                                    <x-text-input id="waktu_pelaksanaan" name="waktu_pelaksanaan" type="datetime-local" class="mt-1 block w-full rounded-xl text-sm @error('waktu_pelaksanaan') border-red-500 @enderror" required value="{{ old('waktu_pelaksanaan') }}" />
-                                    @error('waktu_pelaksanaan') <p class="mt-2 text-sm text-red-600">{{ $message }}</p> @enderror
+                            {{-- ═══════════════════════════════════════════════════════ --}}
+                            {{-- JADWAL UJIAN PER BABAK --}}
+                            {{-- ═══════════════════════════════════════════════════════ --}}
+                            <div class="p-4 bg-orange-50/50 rounded-2xl border border-orange-100 space-y-3">
+                                <div class="flex items-center gap-2">
+                                    <svg class="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                    <h4 class="text-sm font-bold text-slate-800">Jadwal Ujian per Babak</h4>
                                 </div>
-                                <div>
-                                    <x-input-label for="durasi_menit" value="Durasi (Menit)" />
-                                    <x-text-input id="durasi_menit" name="durasi_menit" type="number" class="mt-1 block w-full rounded-xl text-sm @error('durasi_menit') border-red-500 @enderror" required min="1" value="{{ old('durasi_menit', 120) }}" />
-                                    @error('durasi_menit') <p class="mt-2 text-sm text-red-600">{{ $message }}</p> @enderror
+                                <p class="text-xs text-slate-500">Atur waktu mulai ujian untuk masing-masing babak</p>
+
+                                {{-- PENYISIHAN --}}
+                                <div class="bg-white p-3 rounded-xl border border-gray-200">
+                                    <div class="flex items-center gap-2 mb-2">
+                                        <span class="w-2 h-2 rounded-full bg-gray-400"></span>
+                                        <span class="text-[11px] font-bold text-gray-700 uppercase tracking-wider">Penyisihan</span>
+                                        <span class="text-[10px] text-red-500 font-bold">*Wajib</span>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <div>
+                                            <label class="text-[10px] font-bold text-slate-500 uppercase">Waktu Mulai</label>
+                                            <input type="datetime-local" name="waktu_pelaksanaan" required value="{{ old('waktu_pelaksanaan') }}" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm text-xs py-1.5 @error('waktu_pelaksanaan') border-red-500 @enderror">
+                                            @error('waktu_pelaksanaan') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                                        </div>
+                                        <div>
+                                            <label class="text-[10px] font-bold text-slate-500 uppercase">Durasi (Menit)</label>
+                                            <input type="number" name="durasi_menit" required min="1" value="{{ old('durasi_menit', 120) }}" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm text-xs py-1.5 @error('durasi_menit') border-red-500 @enderror">
+                                            @error('durasi_menit') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {{-- SEMIFINAL --}}
+                                <div class="bg-blue-50 p-3 rounded-xl border border-blue-100">
+                                    <div class="flex items-center gap-2 mb-2">
+                                        <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+                                        <span class="text-[11px] font-bold text-blue-700 uppercase tracking-wider">Semifinal</span>
+                                        <span class="text-[10px] text-blue-500 font-medium">(Opsional)</span>
+                                    </div>
+                                    <div>
+                                        <label class="text-[10px] font-bold text-slate-500 uppercase">Waktu Mulai</label>
+                                        <input type="datetime-local" name="waktu_pelaksanaan_semifinal" value="{{ old('waktu_pelaksanaan_semifinal') }}" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm text-xs py-1.5 @error('waktu_pelaksanaan_semifinal') border-red-500 @enderror">
+                                        @error('waktu_pelaksanaan_semifinal') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                                    </div>
+                                </div>
+
+                                {{-- FINAL --}}
+                                <div class="bg-purple-50 p-3 rounded-xl border border-purple-100">
+                                    <div class="flex items-center gap-2 mb-2">
+                                        <span class="w-2 h-2 rounded-full bg-purple-500"></span>
+                                        <span class="text-[11px] font-bold text-purple-700 uppercase tracking-wider">Final</span>
+                                        <span class="text-[10px] text-purple-500 font-medium">(Opsional)</span>
+                                    </div>
+                                    <div>
+                                        <label class="text-[10px] font-bold text-slate-500 uppercase">Waktu Mulai</label>
+                                        <input type="datetime-local" name="waktu_pelaksanaan_final" value="{{ old('waktu_pelaksanaan_final') }}" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm text-xs py-1.5 @error('waktu_pelaksanaan_final') border-red-500 @enderror">
+                                        @error('waktu_pelaksanaan_final') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                                    </div>
                                 </div>
                             </div>
 
@@ -248,14 +296,6 @@
                 setTimeout(() => { toast.remove(); }, 5000);
             @endif
         });
-
-        // Handle error modal auto-close
-        @if ($errors->any() || session('error'))
-            setTimeout(() => {
-                const modal = document.querySelector('#errorModal');
-                if (modal) modal.style.display = 'none';
-            }, 10000);
-        @endif
     </script>
 
     <style>
@@ -265,13 +305,6 @@
         @keyframes slideInRight {
             from { transform: translateX(100%); opacity: 0; }
             to { transform: translateX(0); opacity: 1; }
-        }
-        #errorModal {
-            animation: fadeIn 0.3s ease-in-out;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: scale(0.95); }
-            to { opacity: 1; transform: scale(1); }
         }
     </style>
 </x-app-layout>

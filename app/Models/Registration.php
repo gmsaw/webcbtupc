@@ -11,7 +11,7 @@ class Registration extends Model implements HasMedia
 {
     use HasFactory, InteractsWithMedia;
 
-    protected $fillable = ['user_id', 'competition_id', 'status_pendaftaran'];
+    protected $fillable = ['user_id', 'competition_id', 'babak', 'status_pendaftaran'];
 
     public function user() { return $this->belongsTo(User::class); }
     public function competition() { return $this->belongsTo(Competition::class); }

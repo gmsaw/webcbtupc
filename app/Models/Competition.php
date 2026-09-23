@@ -18,6 +18,8 @@ class Competition extends Model implements HasMedia
         'tanggal_mulai', 
         'tanggal_selesai',
         'waktu_pelaksanaan',
+        'waktu_pelaksanaan_semifinal',
+        'waktu_pelaksanaan_final',
         'durasi_menit', 
         'is_active',
         'is_using_waves',
@@ -33,6 +35,8 @@ class Competition extends Model implements HasMedia
             'tanggal_mulai' => 'date',
             'tanggal_selesai' => 'date',
             'waktu_pelaksanaan' => 'datetime',
+            'waktu_pelaksanaan_semifinal'   => 'datetime',
+            'waktu_pelaksanaan_final'       => 'datetime',
             'is_using_waves' => 'boolean',
         ];
     }

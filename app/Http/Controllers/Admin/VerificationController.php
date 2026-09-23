@@ -196,4 +196,22 @@ class VerificationController extends Controller
 
         return view('admin.verifikasi.search', compact('registrations', 'keyword'));
     }
+
+    /**
+ * Update babak peserta (penyisihan / semifinal / final)
+ */
+public function updateBabak(Request $request, Registration $registration)
+{
+    $request->validate([
+        'babak' => 'required|in:penyisihan,semifinal,final',
+    ]);
+
+    $registration->update([
+        'babak' => $request->babak,
+    ]);
+
+    return back()->with('success', 
+        'Peserta ' . $registration->user->name . ' berhasil dipindahkan ke babak ' . ucfirst($request->babak) . '.'
+    );
+}
 }

@@ -116,62 +116,85 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // ─── (A) Verifikasi Pendaftaran ───
         Route::get('/verifikasi', [VerificationController::class, 'index'])
             ->name('verifikasi.index');
+
         Route::get('/verifikasi/{competition}', [VerificationController::class, 'show'])
             ->name('verifikasi.show');
+
         Route::post('/verifikasi/update/{registration}', [VerificationController::class, 'updateStatus'])
             ->name('verifikasi.updateStatus');
+
         Route::put('/verifikasi/{registration}', [VerificationController::class, 'update'])
             ->name('verifikasi.update');
+
+        // ── Update babak peserta (penyisihan / semifinal / final) ──
+        Route::put('/verifikasi/{registration}/babak', [VerificationController::class, 'updateBabak'])
+            ->name('verifikasi.updateBabak');
+
         Route::delete('/verifikasi/{registration}', [VerificationController::class, 'destroy'])
             ->name('verifikasi.destroy');
 
         // ─── (B) Manajemen Peserta ───
         Route::get('/peserta', [ParticipantController::class, 'index'])
             ->name('peserta.index');
+
         Route::get('/peserta/export', [ParticipantController::class, 'export'])
             ->name('peserta.export');
+
         Route::get('/peserta/{user}/edit', [ParticipantController::class, 'edit'])
             ->name('peserta.edit');
+
         Route::put('/peserta/{user}', [ParticipantController::class, 'update'])
             ->name('peserta.update');
+
         Route::delete('/peserta/{user}', [ParticipantController::class, 'destroy'])
             ->name('peserta.destroy');
+
         Route::delete('/peserta/{user}/reset', [ParticipantController::class, 'resetRegistrations'])
             ->name('peserta.reset');
 
         // ─── (C) Manajemen Kompetisi ───
         Route::get('/kompetisi', [CompetitionController::class, 'index'])
             ->name('kompetisi.index');
+
         Route::get('/kompetisi/create', [CompetitionController::class, 'create'])
             ->name('kompetisi.create');
+
         Route::post('/kompetisi', [CompetitionController::class, 'store'])
             ->name('kompetisi.store');
+
         Route::get('/kompetisi/{competition}/edit', [CompetitionController::class, 'edit'])
             ->name('kompetisi.edit');
+
         Route::put('/kompetisi/{competition}', [CompetitionController::class, 'update'])
             ->name('kompetisi.update');
+
         Route::delete('/kompetisi/{competition}', [CompetitionController::class, 'destroy'])
             ->name('kompetisi.destroy');
 
         // ─── (D) Bank Soal ───
         Route::get('/kompetisi/{competition}/soal', [QuestionController::class, 'index'])
             ->name('kompetisi.soal.index');
+
         Route::post('/kompetisi/{competition}/soal', [QuestionController::class, 'store'])
             ->name('kompetisi.soal.store');
+
         Route::delete('/soal/{question}', [QuestionController::class, 'destroy'])
             ->name('kompetisi.soal.destroy');
 
         // ─── (E) Export & Ranking ───
         Route::get('/kompetisi/{competition}/export', [ParticipantController::class, 'exportByCompetition'])
             ->name('kompetisi.export');
+
         Route::get('/kompetisi/{competition}/ranking', [ParticipantController::class, 'ranking'])
             ->name('kompetisi.ranking');
 
         // ─── (F) Jawaban Mentah ───
         Route::get('/kompetisi/{competition}/jawaban-export', [ParticipantController::class, 'exportAnswersCsv'])
             ->name('kompetisi.jawaban.export');
+
         Route::get('/kompetisi/{competition}/peserta/{registration}/jawaban', [ParticipantController::class, 'showAnswers'])
             ->name('kompetisi.peserta.jawaban');
+
         Route::get('/kompetisi/{competition}/peserta/{registration}/jawaban-export', [ParticipantController::class, 'exportSingleAnswersCsv'])
             ->name('kompetisi.peserta.jawaban.export');
 
@@ -187,6 +210,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // ─── (H) Verifikasi Merchandise ───
         Route::get('/verifikasi-merchandise', [MerchandiseVerificationController::class, 'index'])
             ->name('merchandise.verifikasi');
+
         Route::put('/verifikasi-merchandise/{transaction}', [MerchandiseVerificationController::class, 'update'])
             ->name('merchandise.verifikasi.update');
     });
@@ -227,6 +251,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             // Submit & autosave
             Route::post('/submit', [CbtController::class, 'submit'])
                 ->name('submit');
+
             Route::post('/autosave', [CbtController::class, 'autosave'])
                 ->name('autosave');
         });
@@ -234,16 +259,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // ─── (D) Pengumuman ───
         Route::get('/pengumuman', [UserAnnouncementController::class, 'index'])
             ->name('pengumuman');
+
         Route::get('/pengumuman/{announcement}', [UserAnnouncementController::class, 'show'])
             ->name('pengumuman.show');
 
         // ─── (E) Pustaka E-Book ───
         Route::get('/pustaka', [LibraryController::class, 'index'])
             ->name('pustaka');
+
         Route::get('/pustaka/{id}/read', [LibraryController::class, 'read'])
             ->name('pustaka.read');
+
         Route::get('/pustaka/{id}/stream', [LibraryController::class, 'stream'])
             ->name('pustaka.stream');
+
         Route::post('/pustaka/log-security', [LibraryController::class, 'logSecurity'])
             ->name('pustaka.log');
 

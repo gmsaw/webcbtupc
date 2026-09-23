@@ -18,26 +18,51 @@ class CbtController extends Controller
     // ============================================================
     public function prepare(Request $request, Registration $registration)
     {
-        // Keamanan dasar
+        // ── Keamanan dasar ──
         if ((int)$registration->user_id !== (int)auth()->id()
             || strtolower($registration->status_pendaftaran) !== 'verified') {
             return redirect()->route('dashboard')->with('error', 'Akses ditolak. Anda belum diverifikasi.');
         }
 
-        // Pastikan record ExamResult sudah ada
+        // ── Tentukan babak peserta ──
+        $babak = $registration->babak ?? 'penyisihan';
+
+        // ══════════════════════════════════════════════════════════
+        // PASTIKAN RECORD EXAM RESULT ADA
+        // Reset status kalau peserta naik babak
+        // ══════════════════════════════════════════════════════════
         if (!$registration->examResult) {
             $registration->examResult()->create([
-                'status' => 'not_started',
+                'babak'           => $babak,
+                'status'          => 'not_started',
                 'violation_count' => 0,
             ]);
+        } else {
+            // Kalau examResult ada tapi babaknya beda (peserta naik babak),
+            // dan status belum in_progress → update babak & RESET STATUS
+            if ($registration->examResult->babak !== $babak
+                && $registration->examResult->status !== 'in_progress') {
+                $registration->examResult()->update([
+                    'babak'           => $babak,
+                    'status'          => 'not_started',   // ← reset status
+                    'start_time'      => null,            // ← reset waktu mulai
+                    'end_time'        => null,            // ← reset waktu selesai
+                    'score'           => 0,               // ← reset skor
+                    'violation_count' => 0,               // ← reset pelanggaran
+                ]);
+            }
         }
 
-        // Cek apakah sudah selesai
-        if ($registration->examResult->status === 'finished') {
-            return redirect()->route('dashboard')->with('error', 'Anda sudah menyelesaikan ujian CBT ini.');
+        $registration->refresh();
+
+        // ── Cek apakah sudah selesai di babak INI ──
+        if ($registration->examResult->status === 'finished'
+            && $registration->examResult->babak === $babak) {
+            return redirect()->route('dashboard')
+                ->with('error', 'Anda sudah menyelesaikan ujian babak ' . ucfirst($babak) . '.');
         }
 
-        // Kalau sudah punya token valid → langsung ke ujian
+        // ── Kalau sudah punya token valid → langsung ke ujian ──
         $existingToken = $request->cookie('exam_access');
         if ($existingToken && ($payload = Cache::get("exam_access:{$existingToken}"))) {
             if ((int) $payload['registration_id'] === (int)$registration->id) {
@@ -46,12 +71,13 @@ class CbtController extends Controller
             Cache::forget("exam_access:{$existingToken}");
         }
 
-        // Buat queue session baru
+        // ── Buat queue session baru ──
         $queueId = (string) Str::uuid();
 
         Cache::put("queue:{$queueId}", [
             'registration_id' => $registration->id,
             'user_id'         => auth()->id(),
+            'babak'           => $babak,
             'joined_at'       => now()->toIso8601String(),
         ], now()->addMinutes(15));
 
@@ -80,15 +106,20 @@ class CbtController extends Controller
             abort(403);
         }
 
-        if ($registration->examResult && $registration->examResult->status === 'finished') {
+        $babak = $registration->babak ?? 'penyisihan';
+
+        // ── Cek selesai di babak INI ──
+        if ($registration->examResult
+            && $registration->examResult->status === 'finished'
+            && $registration->examResult->babak === $babak) {
             return response()->json([
                 'ready' => false,
-                'error' => 'Anda sudah menyelesaikan ujian.',
+                'error' => 'Anda sudah menyelesaikan ujian babak ' . ucfirst($babak) . '.',
                 'reset' => true,
             ], 403);
         }
 
-        // Race condition handler: cek token valid dulu
+        // Race condition handler
         $existingToken = $request->cookie('exam_access');
         if ($existingToken && ($payload = Cache::get("exam_access:{$existingToken}"))) {
             if ((int) $payload['registration_id'] === (int)$registration->id) {
@@ -146,6 +177,7 @@ class CbtController extends Controller
         Cache::put("exam_access:{$accessToken}", [
             'registration_id' => $registration->id,
             'user_id'         => auth()->id(),
+            'babak'           => $babak,
             'issued_at'       => now()->toIso8601String(),
             'last_seen_at'    => now()->toIso8601String(),
         ], now()->addMinutes(240));
@@ -170,45 +202,92 @@ class CbtController extends Controller
     }
 
     // ============================================================
-    // 2. MENAMPILKAN UJIAN (WAKTU MUTLAK)
+    // 2. MENAMPILKAN UJIAN (WAKTU MUTLAK PER BABAK)
     // ============================================================
     public function show(Registration $registration)
     {
+        // ── Keamanan dasar ──
         if ((int)$registration->user_id !== auth()->id()
             || $registration->status_pendaftaran !== 'verified') {
             return redirect()->route('dashboard')->with('error', 'Akses ditolak.');
         }
 
-        if ($registration->examResult && $registration->examResult->status === 'finished') {
-            return redirect()->route('dashboard')->with('error', 'Anda sudah menyelesaikan ujian.');
+        // ── Tentukan babak peserta ──
+        $babak = $registration->babak ?? 'penyisihan';
+
+        // ── Pastikan examResult ada ──
+        if (!$registration->examResult) {
+            $registration->examResult()->create([
+                'babak'           => $babak,
+                'status'          => 'not_started',
+                'violation_count' => 0,
+            ]);
+            $registration->refresh();
         }
 
-        if ($registration->examResult->status === 'not_started') {
+        // ── Cek selesai di babak INI ──
+        if ($registration->examResult->status === 'finished'
+            && $registration->examResult->babak === $babak) {
+            return redirect()->route('dashboard')
+                ->with('error', 'Anda sudah menyelesaikan ujian babak ' . ucfirst($babak) . '.');
+        }
+
+        // ══════════════════════════════════════════════════════════
+        // UPDATE STATUS JADI in_progress
+        // Pastikan babak & end_time di-reset kalau babak berubah
+        // ══════════════════════════════════════════════════════════
+        if ($registration->examResult->status === 'not_started'
+            || $registration->examResult->babak !== $babak) {
             $registration->examResult()->update([
+                'babak'      => $babak,
                 'status'     => 'in_progress',
                 'start_time' => now(),
+                'end_time'   => null,   // ← pastikan tidak ada end_time menyangkut
             ]);
         }
 
         $competition = $registration->competition;
 
-        // ── WAKTU MUTLAK ──
-        if (!$competition->waktu_pelaksanaan) {
+        // ══════════════════════════════════════════════════════════
+        // WAKTU MUTLAK PER BABAK
+        // ══════════════════════════════════════════════════════════
+        $waktuMulai = match ($babak) {
+            'final'     => $competition->waktu_pelaksanaan_final,
+            'semifinal' => $competition->waktu_pelaksanaan_semifinal,
+            default     => $competition->waktu_pelaksanaan,
+        };
+
+        $durasiMenit = match ($babak) {
+            'final'     => $competition->durasi_menit_final     ?? $competition->durasi_menit ?? 120,
+            'semifinal' => $competition->durasi_menit_semifinal ?? $competition->durasi_menit ?? 120,
+            default     => $competition->durasi_menit ?? 120,
+        };
+
+        if (!$waktuMulai) {
             return redirect()->route('dashboard')
-                ->with('error', 'Jadwal ujian belum ditentukan. Hubungi admin.');
+                ->with('error', 'Jadwal ujian babak ' . ucfirst($babak) . ' belum ditentukan. Hubungi admin.');
         }
 
-        $waktuMulaiJadwal = \Carbon\Carbon::parse($competition->waktu_pelaksanaan);
-        $durasiMenit = $competition->durasi_menit ?? 120;
+        $waktuMulaiJadwal   = \Carbon\Carbon::parse($waktuMulai);
         $waktuSelesaiMutlak = $waktuMulaiJadwal->copy()->addMinutes($durasiMenit);
 
         if (now()->greaterThanOrEqualTo($waktuSelesaiMutlak)) {
             return redirect()->route('dashboard')
-                ->with('error', 'Waktu ujian telah berakhir berdasarkan jadwal resmi.');
+                ->with('error', 'Waktu ujian babak ' . ucfirst($babak) . ' telah berakhir.');
         }
 
-        // ── SOAL ──
-        $questionsList = $competition->questions()->orderBy('id')->get();
+        // ══════════════════════════════════════════════════════════
+        // AMBIL SOAL SESUAI BABAK
+        // ══════════════════════════════════════════════════════════
+        $questionsList = $competition->questions()
+            ->where('babak', $babak)
+            ->orderBy('id')
+            ->get();
+
+        // Fallback kalau soal per babak kosong
+        if ($questionsList->isEmpty()) {
+            $questionsList = $competition->questions()->orderBy('id')->get();
+        }
 
         $questions = $questionsList->map(function ($q) {
             return [
@@ -229,7 +308,7 @@ class CbtController extends Controller
             return redirect()->route('dashboard')->with('error', 'Soal ujian belum tersedia.');
         }
 
-        // ── JAWABAN TERSIMPAN (index-based untuk Alpine) ──
+        // ── Jawaban tersimpan ──
         $savedAnswers = new \stdClass();
         $dbAnswers = ExamAnswer::where('registration_id', $registration->id)
             ->get()
@@ -241,7 +320,7 @@ class CbtController extends Controller
             }
         }
 
-        // ── SISA DETIK ──
+        // ── Sisa detik ──
         $sisaDetik = now()->diffInSeconds($waktuSelesaiMutlak, false);
 
         return view('user.cbt.ujian', compact(
@@ -255,25 +334,39 @@ class CbtController extends Controller
     }
 
     // ============================================================
-    // 3. AUTOSAVE — TERIMA question_id (FIX BUG INDEX)
+    // 3. AUTOSAVE
     // ============================================================
     public function autosave(Request $request, Registration $registration)
     {
-        // Validasi user & status
+        $babak = $registration->babak ?? 'penyisihan';
+
+        // ── Cek selesai di babak INI ──
         if ((int)$registration->user_id !== auth()->id()
-            || ($registration->examResult && $registration->examResult->status === 'finished')) {
+            || ($registration->examResult
+                && $registration->examResult->status === 'finished'
+                && $registration->examResult->babak === $babak)) {
             return response()->json(['status' => 'error'], 403);
         }
 
-        // ── VALIDASI WAKTU MUTLAK ──
         $competition = $registration->competition;
 
-        if ($competition->waktu_pelaksanaan) {
-            $waktuMulaiJadwal = \Carbon\Carbon::parse($competition->waktu_pelaksanaan);
-            $durasiMenit = $competition->durasi_menit ?? 120;
+        // ── Validasi waktu per babak ──
+        $waktuMulai = match ($babak) {
+            'final'     => $competition->waktu_pelaksanaan_final,
+            'semifinal' => $competition->waktu_pelaksanaan_semifinal,
+            default     => $competition->waktu_pelaksanaan,
+        };
+
+        $durasiMenit = match ($babak) {
+            'final'     => $competition->durasi_menit_final     ?? $competition->durasi_menit ?? 120,
+            'semifinal' => $competition->durasi_menit_semifinal ?? $competition->durasi_menit ?? 120,
+            default     => $competition->durasi_menit ?? 120,
+        };
+
+        if ($waktuMulai) {
+            $waktuMulaiJadwal   = \Carbon\Carbon::parse($waktuMulai);
             $waktuSelesaiMutlak = $waktuMulaiJadwal->copy()->addMinutes($durasiMenit);
 
-            // Toleransi 2 menit untuk delay jaringan
             if (now()->greaterThan($waktuSelesaiMutlak->copy()->addMinutes(2))) {
                 return response()->json([
                     'status'  => 'error',
@@ -282,32 +375,29 @@ class CbtController extends Controller
             }
         }
 
-        // ── TERIMA PAYLOAD: { question_id: answer } ──
-        $userAnswers = json_decode($request->input('answers'), true) ?? [];
+        $rawAnswers = $request->input('answers', '');
 
-        // Validasi ukuran payload
-        if (strlen($request->input('answers', '')) > 50000) {
+        if (strlen($rawAnswers) > 50000) {
             return response()->json([
                 'status'  => 'error',
                 'message' => 'Payload terlalu besar.',
             ], 413);
         }
 
-        // Ambil semua question_id yang valid untuk competition ini
-        $validQuestionIds = $registration->competition
-            ->questions()
+        $userAnswers = json_decode($rawAnswers, true) ?? [];
+
+        $validQuestionIds = $competition->questions()
+            ->where('babak', $babak)
             ->pluck('id')
             ->toArray();
 
         $savedCount = 0;
 
         foreach ($userAnswers as $questionId => $answer) {
-            // Skip kalau question_id tidak valid
             if (!in_array((int)$questionId, $validQuestionIds, true)) {
                 continue;
             }
 
-            // Skip kalau answer kosong
             if ($answer === null || $answer === '') {
                 continue;
             }
@@ -329,27 +419,44 @@ class CbtController extends Controller
             'status'  => 'success',
             'message' => 'Tersimpan otomatis',
             'saved'   => $savedCount,
+            'babak'   => $babak,
         ]);
     }
 
     // ============================================================
-    // 4. SUBMIT — HITUNG NILAI
+    // 4. SUBMIT
     // ============================================================
     public function submit(Request $request, Registration $registration)
     {
+        $babak = $registration->babak ?? 'penyisihan';
+
+        // ── Cek selesai di babak INI ──
         if ((int)$registration->user_id !== auth()->id()
-            || ($registration->examResult && $registration->examResult->status === 'finished')) {
+            || ($registration->examResult
+                && $registration->examResult->status === 'finished'
+                && $registration->examResult->babak === $babak)) {
             return redirect()->route('dashboard');
         }
 
         $competition = $registration->competition;
 
-        // ── VALIDASI WAKTU ──
+        // ── Validasi waktu per babak ──
+        $waktuMulai = match ($babak) {
+            'final'     => $competition->waktu_pelaksanaan_final,
+            'semifinal' => $competition->waktu_pelaksanaan_semifinal,
+            default     => $competition->waktu_pelaksanaan,
+        };
+
+        $durasiMenit = match ($babak) {
+            'final'     => $competition->durasi_menit_final     ?? $competition->durasi_menit ?? 120,
+            'semifinal' => $competition->durasi_menit_semifinal ?? $competition->durasi_menit ?? 120,
+            default     => $competition->durasi_menit ?? 120,
+        };
+
         $bolehSimpanJawaban = true;
 
-        if ($competition->waktu_pelaksanaan) {
-            $waktuMulaiJadwal = \Carbon\Carbon::parse($competition->waktu_pelaksanaan);
-            $durasiMenit = $competition->durasi_menit ?? 120;
+        if ($waktuMulai) {
+            $waktuMulaiJadwal   = \Carbon\Carbon::parse($waktuMulai);
             $waktuSelesaiMutlak = $waktuMulaiJadwal->copy()->addMinutes($durasiMenit);
 
             $bolehSimpanJawaban = now()->lessThanOrEqualTo($waktuSelesaiMutlak->copy()->addMinutes(2));
@@ -357,18 +464,21 @@ class CbtController extends Controller
             if (!$bolehSimpanJawaban) {
                 \Log::info('Submit setelah waktu habis', [
                     'registration_id' => $registration->id,
+                    'babak'           => $babak,
                     'submit_time'     => now()->toIso8601String(),
                     'waktu_selesai'   => $waktuSelesaiMutlak->toIso8601String(),
                 ]);
             }
         }
 
-        // Simpan jawaban terakhir dari form (kalau masih dalam waktu)
-        // Payload form: { question_id: answer }
+        // ── Simpan jawaban terakhir ──
         if ($bolehSimpanJawaban) {
             $userAnswers = json_decode($request->input('answers'), true) ?? [];
 
-            $validQuestionIds = $competition->questions()->pluck('id')->toArray();
+            $validQuestionIds = $competition->questions()
+                ->where('babak', $babak)
+                ->pluck('id')
+                ->toArray();
 
             foreach ($userAnswers as $questionId => $answer) {
                 if (!in_array((int)$questionId, $validQuestionIds, true)) {
@@ -387,10 +497,14 @@ class CbtController extends Controller
             }
         }
 
-        // ── KALKULASI NILAI ──
-        $dbQuestions = $competition->questions->keyBy('id');
+        // ── KALKULASI NILAI — hanya soal babak ini ──
+        $dbQuestions = $competition->questions()
+            ->where('babak', $babak)
+            ->get()
+            ->keyBy('id');
 
         $allUserAnswers = ExamAnswer::where('registration_id', $registration->id)
+            ->whereIn('question_id', $dbQuestions->keys())
             ->get()
             ->keyBy('question_id');
 
@@ -402,7 +516,7 @@ class CbtController extends Controller
 
         foreach ($dbQuestions as $qId => $q) {
             if (isset($allUserAnswers[$qId]) && !empty($allUserAnswers[$qId]->answer_selected)) {
-                $userAns = $allUserAnswers[$qId];
+                $userAns   = $allUserAnswers[$qId];
                 $isCorrect = ($q->jawaban_benar === $userAns->answer_selected);
 
                 $userAns->update(['is_correct' => $isCorrect]);
@@ -419,14 +533,15 @@ class CbtController extends Controller
             }
         }
 
+        // ── Simpan hasil akhir — catat babak ──
         $registration->examResult()->update([
+            'babak'    => $babak,
             'score'    => $totalScore,
             'end_time' => now(),
             'status'   => 'finished',
         ]);
 
         return redirect()->route('dashboard')
-            // ->with('success', 'Ujian Selesai! Anda mendapatkan skor akhir: ' . $totalScore)
             ->with('success', 'Ujian Selesai! Mohon menunggu pengumuman resmi, Terima kasih')
             ->withCookie(cookie()->forget('exam_access'));
     }

@@ -68,52 +68,94 @@ class ParticipantController extends Controller
      */
     private function processAutoSubmit(Registration $registration, Competition $competition): void
     {
-        // Cegah double submit
+        // ── Cegah double submit ──
         if ($registration->examResult && $registration->examResult->status === 'finished') {
             return;
         }
 
-        $dbQuestions = $competition->questions->keyBy('id');
+        // ── Tentukan babak peserta ──
+        $babak = $registration->babak ?? 'penyisihan';
 
+        // ══════════════════════════════════════════════════════════
+        // AMBIL SOAL HANYA UNTUK BABAK INI
+        // ══════════════════════════════════════════════════════════
+        $dbQuestions = $competition->questions()
+            ->where('babak', $babak)
+            ->get()
+            ->keyBy('id');
+
+        // Fallback: kalau soal per babak kosong, ambil semua (opsional)
+        if ($dbQuestions->isEmpty()) {
+            $dbQuestions = $competition->questions()->get()->keyBy('id');
+        }
+
+        // ══════════════════════════════════════════════════════════
+        // AMBIL JAWABAN PESERTA — HANYA UNTUK SOAL BABAK INI
+        // ══════════════════════════════════════════════════════════
         $allUserAnswers = ExamAnswer::where('registration_id', $registration->id)
+            ->whereIn('question_id', $dbQuestions->keys())
             ->get()
             ->keyBy('question_id');
 
+        // ══════════════════════════════════════════════════════════
+        // ATURAN NILAI
+        // ══════════════════════════════════════════════════════════
         $skorBenar  = (float) ($competition->nilai_benar  ?? 4.0);
         $skorSalah  = (float) ($competition->nilai_salah  ?? -1.0);
         $skorKosong = (float) ($competition->nilai_kosong ?? 0.0);
 
         $totalScore = 0;
 
+        // ══════════════════════════════════════════════════════════
+        // LOOP SOAL BABAK INI — HITUNG NILAI
+        // ══════════════════════════════════════════════════════════
         foreach ($dbQuestions as $qId => $q) {
+
             if (isset($allUserAnswers[$qId]) && !empty($allUserAnswers[$qId]->answer_selected)) {
+                // ── Peserta menjawab ──
                 $userAns   = $allUserAnswers[$qId];
                 $isCorrect = ($q->jawaban_benar === $userAns->answer_selected);
 
                 $userAns->update(['is_correct' => $isCorrect]);
 
                 $totalScore += $isCorrect ? $skorBenar : $skorSalah;
+
             } else {
+                // ── Peserta tidak menjawab (kosong) ──
                 $totalScore += $skorKosong;
 
                 ExamAnswer::updateOrCreate(
-                    ['registration_id' => $registration->id, 'question_id' => $qId],
-                    ['answer_selected' => null, 'is_correct' => null]
+                    [
+                        'registration_id' => $registration->id,
+                        'question_id'     => $qId,
+                    ],
+                    [
+                        'answer_selected' => null,
+                        'is_correct'      => null,
+                    ]
                 );
             }
         }
 
+        // ══════════════════════════════════════════════════════════
+        // SIMPAN HASIL AKHIR — CATAT BABAK
+        // ══════════════════════════════════════════════════════════
         $registration->examResult()->update([
+            'babak'    => $babak,           // ← CATAT BABAK
             'score'    => $totalScore,
             'end_time' => now(),
             'status'   => 'finished',
         ]);
 
-        // Optional: log biar kelihatan di laravel.log
+        // ══════════════════════════════════════════════════════════
+        // LOG
+        // ══════════════════════════════════════════════════════════
         \Log::info('AUTO-SUBMIT (on-access)', [
             'registration_id' => $registration->id,
             'user'            => $registration->user->name ?? '-',
             'competition'     => $competition->nama_lomba,
+            'babak'           => $babak,
+            'total_soal'      => $dbQuestions->count(),
             'score'           => $totalScore,
         ]);
     }
