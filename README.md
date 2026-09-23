@@ -1,59 +1,133 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Web CBT Udayana Physics Championship (UPC)
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Sistem Computer-Based Testing (CBT) dan platform pendaftaran kompetisi terintegrasi yang dibangun menggunakan **Laravel**. Sistem ini dirancang untuk menangani pendaftaran peserta, pembayaran otomatis (via Midtrans), manajemen perlombaan (penyisihan, semifinal, final), penjualan *merchandise*, hingga pelaksanaan ujian secara *real-time*.
 
-## About Laravel
+## 🚀 Fitur Utama
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+* **Sistem Ujian Terpadu (CBT):** Manajemen soal, auto-save jawaban, dan kalkulasi skor otomatis berdasarkan bobot dan aturan nilai (benar, salah, kosong).
+* **Manajemen Babak & Gelombang (Waves):** Mendukung pengaturan jadwal ujian spesifik untuk babak Penyisihan, Semifinal, dan Final.
+* **Payment Gateway Terintegrasi:** Pembayaran tiket lomba dan *merchandise* menggunakan Midtrans.
+* **Dashboard Multi-Role:** Akses khusus untuk Admin (manajemen soal, verifikasi, pengumuman) dan Peserta (ruang tunggu ujian, pustaka materi, transaksi).
+* **Manajemen Media & Berkas:** Terintegrasi dengan Spatie Media Library untuk pengelolaan gambar soal, banner lomba, dan foto *merchandise*.
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+---
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## 🛠️ Persyaratan Sistem (Prerequisites)
 
-## Learning Laravel
+Sebelum melakukan instalasi, pastikan sistem Anda memiliki lingkungan berikut:
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+* **PHP** >= 8.2
+* **Composer** (Package Manager PHP)
+* **Node.js** & **NPM** (Untuk kompilasi aset Frontend via Vite)
+* **Database** (MySQL / PostgreSQL / SQLite)
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+---
 
-## Laravel Sponsors
+## ⚙️ Panduan Instalasi
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+Ikuti langkah-langkah di bawah ini untuk menjalankan aplikasi di lingkungan pengembangan lokal (*local development*):
 
-### Premium Partners
+**1. Ekstrak atau Clone Repositori**
+Buka terminal dan arahkan ke direktori proyek.
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+**2. Instalasi Dependensi PHP**
 
-## Contributing
+```bash
+composer install
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+```
 
-## Code of Conduct
+**3. Instalasi Dependensi Node.js**
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+```bash
+npm install
 
-## Security Vulnerabilities
+```
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+**4. Konfigurasi Environment**
+Salin file `.env.example` menjadi `.env`.
 
-## License
+```bash
+cp .env.example .env
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+```
+
+Buka file `.env` dan sesuaikan kredensial database Anda. Jika Anda ingin menggunakan SQLite (sesuai bawaan proyek `upc_cbt_db`), konfigurasikan seperti berikut:
+
+```env
+DB_CONNECTION=sqlite
+# Hapus atau comment baris DB_HOST, DB_PORT, DB_DATABASE, DB_USERNAME, DB_PASSWORD
+
+```
+
+**5. Generate Application Key**
+
+```bash
+php artisan key:generate
+
+```
+
+**6. Migrasi Database & Seeder**
+Jalankan perintah ini untuk membangun struktur tabel dan memasukkan data awal (seperti akun Admin *default*).
+
+```bash
+php artisan migrate --seed
+
+```
+
+**7. Tautkan Storage (Media Library)**
+Karena aplikasi menggunakan Spatie Media Library, Anda wajib menautkan folder *storage* agar gambar dapat diakses secara publik.
+
+```bash
+php artisan storage:link
+
+```
+
+**8. Build Aset Frontend (Tailwind & Vite)**
+Untuk keperluan *development*:
+
+```bash
+npm run dev
+
+```
+
+Atau untuk *production*:
+
+```bash
+npm run build
+
+```
+
+**9. Jalankan Aplikasi**
+Buka tab terminal baru dan jalankan server internal Laravel.
+
+```bash
+php artisan serve
+
+```
+
+Aplikasi kini dapat diakses melalui `http://localhost:8000`.
+
+---
+
+## 💳 Konfigurasi Midtrans (Payment Gateway)
+
+Sistem ini menggunakan Midtrans untuk *checkout* pendaftaran dan *merchandise*. Tambahkan kunci API Midtrans Anda ke dalam file `.env`:
+
+```env
+MIDTRANS_SERVER_KEY=your_server_key_here
+MIDTRANS_CLIENT_KEY=your_client_key_here
+MIDTRANS_IS_PRODUCTION=false
+
+```
+
+---
+
+## 🧪 Pengujian (Testing)
+
+Proyek ini dilengkapi dengan *test suite* menggunakan Pest/PHPUnit (berada di folder `/tests`). Untuk menjalankan seluruh pengujian otomatis:
+
+```bash
+php artisan test
+
+```
