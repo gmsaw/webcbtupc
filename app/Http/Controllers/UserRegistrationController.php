@@ -8,6 +8,8 @@ use App\Models\Competition;
 use App\Models\Registration;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 
@@ -15,42 +17,56 @@ class UserRegistrationController extends Controller
 {
     public function store(Request $request)
     {
-        // 1. Validasi Input Dasar
+        // ═══════════════════════════════════════════════════════════
+        // 1. VALIDASI INPUT DASAR
+        // ═══════════════════════════════════════════════════════════
         $request->validate([
-            'competition_id' => 'required|exists:competitions,id',
+            'competition_id'    => 'required|exists:competitions,id',
             'metode_pembayaran' => 'nullable|in:manual,gateway',
-            'bukti_pembayaran' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:2048' // Max 2MB
+            'bukti_pembayaran'  => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:2048',
         ]);
 
-        $user = Auth::user();
+        $user   = Auth::user();
         $newComp = Competition::findOrFail($request->competition_id);
-        $today = Carbon::today();
+        $today  = Carbon::today();
 
-        // 2. Cek Masa Pendaftaran Umum
-        $isDateValid = $newComp->tanggal_mulai && $newComp->tanggal_selesai && $today->between($newComp->tanggal_mulai, $newComp->tanggal_selesai);
-        if (!$newComp->is_active || !$isDateValid) {
+        // ═══════════════════════════════════════════════════════════
+        // 2. CEK MASA PENDAFTARAN
+        // ═══════════════════════════════════════════════════════════
+        $isDateValid = $newComp->tanggal_mulai
+            && $newComp->tanggal_selesai
+            && $today->between($newComp->tanggal_mulai, $newComp->tanggal_selesai);
+
+        if (! $newComp->is_active || ! $isDateValid) {
             return back()->with('error', 'Pendaftaran untuk kompetisi ini sedang ditutup atau melewati tenggat waktu.');
         }
 
-        // 3. Cek Harga Gelombang Aktif
+        // ═══════════════════════════════════════════════════════════
+        // 3. CEK HARGA GELOMBANG AKTIF
+        // ═══════════════════════════════════════════════════════════
         $activePrice = $newComp->active_price;
         if (is_null($activePrice)) {
             return back()->with('error', 'Maaf, belum ada gelombang pendaftaran yang aktif saat ini.');
         }
 
-        // 4. Cek Duplikasi (Apakah sudah pernah mendaftar?)
-        if (Registration::where('user_id', $user->id)->where('competition_id', $newComp->id)->exists()) {
+        // ═══════════════════════════════════════════════════════════
+        // 4. CEK DUPLIKASI
+        // ═══════════════════════════════════════════════════════════
+        if (Registration::where('user_id', $user->id)
+                ->where('competition_id', $newComp->id)
+                ->exists()) {
             return back()->with('error', 'Anda sudah terdaftar di kompetisi ini.');
         }
 
-        // 5. Cek Validasi Pembayaran (Jika Berbayar)
+        // ═══════════════════════════════════════════════════════════
+        // 5. VALIDASI PEMBAYARAN (JIKA BERBAYAR)
+        // ═══════════════════════════════════════════════════════════
         if ($activePrice > 0) {
             $request->validate(
                 ['metode_pembayaran' => 'required|in:manual,gateway'],
                 ['metode_pembayaran.required' => 'Pilih metode pembayaran terlebih dahulu.']
             );
 
-            // Jika pilih manual, bukti WAJIB ada
             if ($request->metode_pembayaran === 'manual') {
                 $request->validate(
                     ['bukti_pembayaran' => 'required|file|mimes:jpg,jpeg,png,pdf|max:2048'],
@@ -59,11 +75,12 @@ class UserRegistrationController extends Controller
             }
         }
 
-        // 6. Cek Bentrok Jadwal Pelaksanaan Ujian
+        // ═══════════════════════════════════════════════════════════
+        // 6. CEK BENTROK JADWAL PELAKSANAAN
+        // ═══════════════════════════════════════════════════════════
         if ($newComp->waktu_pelaksanaan && $newComp->durasi_menit) {
             $newStart = Carbon::parse($newComp->waktu_pelaksanaan);
-            
-            $newEnd = $newStart->copy()->addMinutes((int)$newComp->durasi_menit);
+            $newEnd   = $newStart->copy()->addMinutes((int) $newComp->durasi_menit);
 
             $myRegistrations = Registration::with('competition')
                 ->where('user_id', $user->id)
@@ -71,101 +88,151 @@ class UserRegistrationController extends Controller
                 ->get();
 
             foreach ($myRegistrations as $reg) {
-                if ($reg->competition->waktu_pelaksanaan && $reg->competition->durasi_menit) {
-                    $oldStart = Carbon::parse($reg->competition->waktu_pelaksanaan);
-                    
-                    // PERBAIKAN: Tambahkan (int) juga di sini
-                    $oldEnd = $oldStart->copy()->addMinutes((int)$reg->competition->durasi_menit);
+                $comp = $reg->competition;
+                if (! $comp || ! $comp->waktu_pelaksanaan || ! $comp->durasi_menit) {
+                    continue;
+                }
 
-                    // Rumus Bentrok Waktu (Overlap)
-                    if ($newStart->lt($oldEnd) && $newEnd->gt($oldStart)) {
-                        return back()->with('error', 'Gagal mendaftar: Jadwal kompetisi ini BENTROK dengan lomba "' . $reg->competition->nama_lomba . '" yang sudah Anda ikuti.');
-                    }
+                $oldStart = Carbon::parse($comp->waktu_pelaksanaan);
+                $oldEnd   = $oldStart->copy()->addMinutes((int) $comp->durasi_menit);
+
+                // Overlap: newStart < oldEnd && newEnd > oldStart
+                if ($newStart->lt($oldEnd) && $newEnd->gt($oldStart)) {
+                    return back()->with(
+                        'error',
+                        'Gagal mendaftar: Jadwal kompetisi ini BENTROK dengan lomba "'
+                        . $comp->nama_lomba . '" yang sudah Anda ikuti.'
+                    );
                 }
             }
         }
 
-        // 7. Tentukan Status Awal
+        // ═══════════════════════════════════════════════════════════
+        // 7. TENTUKAN STATUS AWAL
+        // ═══════════════════════════════════════════════════════════
         $statusPendaftaran = ($activePrice == 0) ? 'verified' : 'pending';
-        $statusPembayaran  = ($activePrice == 0) ? 'paid' : 'unpaid';
-        $orderId = 'UPC-' . strtoupper(Str::random(6)) . '-' . time();
+        $statusPembayaran  = ($activePrice == 0) ? 'paid'     : 'unpaid';
+        $orderId           = 'UPC-' . strtoupper(Str::random(6)) . '-' . time();
 
-        // ====================================================================
-        // EKSEKUSI PEMISAHAN TABEL (Registrasi, Payment, dan Ujian)
-        // ====================================================================
+        // ═══════════════════════════════════════════════════════════
+        // 8. SIMPAN DATA — DALAM TRANSAKSI
+        // ═══════════════════════════════════════════════════════════
+        DB::beginTransaction();
 
-        // A. Simpan Data Induk Pendaftaran (Tabel registrations)
-        $registration = Registration::create([
-            'user_id' => $user->id,
-            'competition_id' => $newComp->id,
-            'status_pendaftaran' => $statusPendaftaran,
-        ]);
+        try {
+            // ── A. Registration ──
+            $registration = Registration::create([
+                'user_id'            => $user->id,
+                'competition_id'     => $newComp->id,
+                'status_pendaftaran' => $statusPendaftaran,
+                'babak'              => 'penyisihan', // default babak pertama
+            ]);
 
-        // B. Simpan Data Tagihan Keuangan (Tabel payments)
-        $payment = $registration->payment()->create([
-            'order_id' => $orderId,
-            'amount' => $activePrice,
-            'status' => $statusPembayaran,
-            'payment_type' => $request->metode_pembayaran ?? 'free',
-        ]);
+            // ── B. Payment ──
+            $payment = $registration->payment()->create([
+                'order_id'       => $orderId,
+                'amount'         => $activePrice,
+                'status'         => $statusPembayaran,
+                'payment_type'   => $request->metode_pembayaran ?? 'free',
+            ]);
 
-        // C. Inisialisasi Lembar Hasil Ujian (Tabel exam_results)
-        $registration->examResult()->create([
-            'status' => 'not_started',
-            'violation_count' => 0
-        ]);
+            // ── C. Exam Result — babak penyisihan (multi-babak ready) ──
+            // Pakai relasi hasMany examResults() karena 1 registration bisa punya
+            // banyak row exam_results (penyisihan, semifinal, final).
+            $registration->examResults()->create([
+                'babak'           => 'penyisihan',
+                'status'          => 'not_started',
+                'violation_count' => 0,
+            ]);
 
-        // ====================================================================
-        // EKSEKUSI PEMBAYARAN (MANUAL vs GATEWAY)
-        // ====================================================================
-
-        if ($activePrice > 0) {
-            
-            if ($request->metode_pembayaran === 'manual') {
-                // Simpan Bukti Transfer menggunakan Spatie Media Library di relasi registration
+            // ── D. Upload bukti pembayaran (manual) ──
+            if ($activePrice > 0 && $request->metode_pembayaran === 'manual') {
                 if ($request->hasFile('bukti_pembayaran')) {
-                    $registration->addMediaFromRequest('bukti_pembayaran')->toMediaCollection('bukti_pembayaran_lomba');
+                    $registration->addMediaFromRequest('bukti_pembayaran')
+                        ->toMediaCollection('bukti_pembayaran_lomba');
                 }
-                return back()->with('success', 'Berhasil mendaftar! Bukti pembayaran Anda telah dikirim dan sedang menunggu verifikasi panitia.');
-            
-            } elseif ($request->metode_pembayaran === 'gateway') {
-                // Integrasi Midtrans
-                Config::$serverKey = env('MIDTRANS_SERVER_KEY');
+            }
+
+            DB::commit();
+
+        } catch (\Throwable $e) {
+            DB::rollBack();
+
+            Log::error('Gagal mendaftar kompetisi', [
+                'user_id'        => $user->id,
+                'competition_id' => $newComp->id,
+                'error'          => $e->getMessage(),
+                'trace'          => $e->getTraceAsString(),
+            ]);
+
+            return back()->with(
+                'error',
+                'Terjadi kesalahan saat menyimpan pendaftaran. Silakan coba lagi.'
+            );
+        }
+
+        // ═══════════════════════════════════════════════════════════
+        // 9. HANDLE PEMBAYARAN
+        // ═══════════════════════════════════════════════════════════
+
+        // ── Manual: selesai, tinggal menunggu verifikasi ──
+        if ($activePrice > 0 && $request->metode_pembayaran === 'manual') {
+            return back()->with(
+                'success',
+                'Berhasil mendaftar! Bukti pembayaran Anda telah dikirim dan sedang menunggu verifikasi panitia.'
+            );
+        }
+
+        // ── Gateway (Midtrans) ──
+        if ($activePrice > 0 && $request->metode_pembayaran === 'gateway') {
+            try {
+                Config::$serverKey    = env('MIDTRANS_SERVER_KEY');
                 Config::$isProduction = env('MIDTRANS_IS_PRODUCTION', false);
-                Config::$isSanitized = true;
-                Config::$is3ds = true;
+                Config::$isSanitized  = true;
+                Config::$is3ds        = true;
 
                 $params = [
                     'transaction_details' => [
-                        'order_id' => $orderId,
+                        'order_id'     => $orderId,
                         'gross_amount' => (int) $activePrice,
                     ],
                     'customer_details' => [
                         'first_name' => $user->name,
-                        'email' => $user->email,
+                        'email'      => $user->email,
                     ],
                     'item_details' => [
                         [
-                            'id' => 'COMP-'.$newComp->id,
-                            'price' => (int) $activePrice,
+                            'id'       => 'COMP-' . $newComp->id,
+                            'price'    => (int) $activePrice,
                             'quantity' => 1,
-                            'name' => substr('Tiket: '.$newComp->nama_lomba, 0, 50)
-                        ]
-                    ]
+                            'name'     => substr('Tiket: ' . $newComp->nama_lomba, 0, 50),
+                        ],
+                    ],
                 ];
 
-                // Request Token ke Midtrans
                 $snapToken = Snap::getSnapToken($params);
-                
-                // Simpan token ke tabel payments
+
                 $payment->update(['snap_token' => $snapToken]);
 
-                // Arahkan ke halaman khusus pop-up Midtrans
                 return redirect()->route('user.kompetisi.checkout', $registration->id);
+
+            } catch (\Throwable $e) {
+                Log::error('Midtrans Snap error', [
+                    'registration_id' => $registration->id,
+                    'order_id'        => $orderId,
+                    'error'           => $e->getMessage(),
+                ]);
+
+                return redirect()
+                    ->route('user.kompetisi.checkout', $registration->id)
+                    ->with('error', 'Pendaftaran tersimpan, tetapi gagal membuat sesi pembayaran otomatis. Silakan coba lagi atau hubungi panitia.');
             }
         }
 
-        // Jika harga lomba gratis
-        return back()->with('success', 'Berhasil mendaftar kompetisi secara gratis! Pendaftaran Anda otomatis divalidasi oleh sistem.');
+        // ── Gratis ──
+        return back()->with(
+            'success',
+            'Berhasil mendaftar kompetisi secara gratis! Pendaftaran Anda otomatis divalidasi oleh sistem.'
+        );
     }
 }

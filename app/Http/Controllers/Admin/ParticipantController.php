@@ -17,32 +17,16 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 class ParticipantController extends Controller
 {
     // ====================================================================
-    // AUTO-SUBMIT ON-ACCESS
+    // AUTO-SUBMIT ON-ACCESS — per babak
     // ====================================================================
 
     /**
-     * Auto-submit semua peserta yang waktu ujiannya sudah habis
-     * tapi statusnya masih in_progress.
-     *
-     * Dipanggil sebelum menampilkan data (showAnswers, export, ranking).
+     * Auto-submit peserta yang waktunya habis tapi status masih in_progress.
+     * Dicek PER BABAK (bukan hanya babak penyisihan).
      */
     private function autoSubmitExpiredForCompetition(Competition $competition): void
     {
-        // Wajib ada waktu_pelaksanaan & durasi_menit
-        if (!$competition->waktu_pelaksanaan || !$competition->durasi_menit) {
-            return;
-        }
-
-        $waktuMulai   = Carbon::parse($competition->waktu_pelaksanaan);
-        $durasiMenit  = (int) $competition->durasi_menit;
-        $waktuSelesai = $waktuMulai->copy()->addMinutes($durasiMenit);
-
-        // Belum lewat + toleransi 2 menit → tidak perlu auto-submit
-        if (now()->lessThanOrEqualTo($waktuSelesai->copy()->addMinutes(2))) {
-            return;
-        }
-
-        // Cari exam_results yang masih in_progress di lomba ini
+        // Ambil exam_result yang masih in_progress di lomba ini
         $expired = ExamResult::where('status', 'in_progress')
             ->whereHas('registration', function ($q) use ($competition) {
                 $q->where('competition_id', $competition->id);
@@ -55,26 +39,35 @@ class ParticipantController extends Controller
         }
 
         foreach ($expired as $examResult) {
-            if ($examResult->registration) {
-                $this->processAutoSubmit($examResult->registration, $competition);
+            $reg = $examResult->registration;
+            if (! $reg) continue;
+
+            // ── Cek apakah waktu babak INI sudah habis ──
+            [$waktuMulai, $durasiMenit] = $this->resolveJadwal($competition, $examResult->babak);
+
+            if (! $waktuMulai) continue;
+
+            $waktuSelesai = Carbon::parse($waktuMulai)->addMinutes($durasiMenit);
+
+            // Belum lewat + toleransi 2 menit → skip
+            if (now()->lessThanOrEqualTo($waktuSelesai->copy()->addMinutes(2))) {
+                continue;
             }
+
+            $this->processAutoSubmit($reg, $competition, $examResult->babak);
         }
     }
 
     /**
-     * Proses auto-submit 1 registrasi:
-     * - Hitung nilai dari jawaban tersimpan
-     * - Update exam_results.status = finished
+     * Proses auto-submit 1 registrasi untuk babak tertentu.
      */
-    private function processAutoSubmit(Registration $registration, Competition $competition): void
+    private function processAutoSubmit(Registration $registration, Competition $competition, string $babak): void
     {
         // ── Cegah double submit ──
-        if ($registration->examResult && $registration->examResult->status === 'finished') {
+        $existing = $registration->examResultFor($babak);
+        if ($existing && $existing->status === 'finished') {
             return;
         }
-
-        // ── Tentukan babak peserta ──
-        $babak = $registration->babak ?? 'penyisihan';
 
         // ══════════════════════════════════════════════════════════
         // AMBIL SOAL HANYA UNTUK BABAK INI
@@ -84,9 +77,8 @@ class ParticipantController extends Controller
             ->get()
             ->keyBy('id');
 
-        // Fallback: kalau soal per babak kosong, ambil semua (opsional)
         if ($dbQuestions->isEmpty()) {
-            $dbQuestions = $competition->questions()->get()->keyBy('id');
+            return; // tidak ada soal → jangan auto-submit
         }
 
         // ══════════════════════════════════════════════════════════
@@ -97,59 +89,38 @@ class ParticipantController extends Controller
             ->get()
             ->keyBy('question_id');
 
-        // ══════════════════════════════════════════════════════════
-        // ATURAN NILAI
-        // ══════════════════════════════════════════════════════════
         $skorBenar  = (float) ($competition->nilai_benar  ?? 4.0);
         $skorSalah  = (float) ($competition->nilai_salah  ?? -1.0);
         $skorKosong = (float) ($competition->nilai_kosong ?? 0.0);
 
         $totalScore = 0;
 
-        // ══════════════════════════════════════════════════════════
-        // LOOP SOAL BABAK INI — HITUNG NILAI
-        // ══════════════════════════════════════════════════════════
         foreach ($dbQuestions as $qId => $q) {
-
-            if (isset($allUserAnswers[$qId]) && !empty($allUserAnswers[$qId]->answer_selected)) {
-                // ── Peserta menjawab ──
-                $userAns   = $allUserAnswers[$qId];
-                $isCorrect = ($q->jawaban_benar === $userAns->answer_selected);
-
-                $userAns->update(['is_correct' => $isCorrect]);
-
+            if (isset($allUserAnswers[$qId]) && ! empty($allUserAnswers[$qId]->answer_selected)) {
+                $isCorrect = ($q->jawaban_benar === $allUserAnswers[$qId]->answer_selected);
+                $allUserAnswers[$qId]->update(['is_correct' => $isCorrect]);
                 $totalScore += $isCorrect ? $skorBenar : $skorSalah;
-
             } else {
-                // ── Peserta tidak menjawab (kosong) ──
                 $totalScore += $skorKosong;
-
                 ExamAnswer::updateOrCreate(
-                    [
-                        'registration_id' => $registration->id,
-                        'question_id'     => $qId,
-                    ],
-                    [
-                        'answer_selected' => null,
-                        'is_correct'      => null,
-                    ]
+                    ['registration_id' => $registration->id, 'question_id' => $qId],
+                    ['answer_selected' => null, 'is_correct' => null]
                 );
             }
         }
 
         // ══════════════════════════════════════════════════════════
-        // SIMPAN HASIL AKHIR — CATAT BABAK
+        // SIMPAN HASIL — per babak, TIDAK menimpa babak lain
         // ══════════════════════════════════════════════════════════
-        $registration->examResult()->update([
-            'babak'    => $babak,           // ← CATAT BABAK
-            'score'    => $totalScore,
-            'end_time' => now(),
-            'status'   => 'finished',
-        ]);
+        $registration->examResults()->updateOrCreate(
+            ['babak' => $babak],
+            [
+                'score'    => $totalScore,
+                'end_time' => now(),
+                'status'   => 'finished',
+            ]
+        );
 
-        // ══════════════════════════════════════════════════════════
-        // LOG
-        // ══════════════════════════════════════════════════════════
         \Log::info('AUTO-SUBMIT (on-access)', [
             'registration_id' => $registration->id,
             'user'            => $registration->user->name ?? '-',
@@ -233,17 +204,18 @@ class ParticipantController extends Controller
                 $reg->clearMediaCollection('bukti_pembayaran');
             }
 
-            $reg->delete();
+            $reg->delete(); // cascade → exam_results & exam_answers ikut terhapus
         }
 
         return back()->with(
             'success',
-            '🛠️ DEBUG: Semua riwayat pendaftaran lomba, tagihan Midtrans, dan riwayat ujian CBT milik "' . $user->name . '" berhasil dihapus bersih!'
+            '🛠️ DEBUG: Semua riwayat pendaftaran lomba, tagihan Midtrans, dan riwayat ujian CBT milik "'
+            . $user->name . '" berhasil dihapus bersih!'
         );
     }
 
     // ====================================================================
-    // EXPORT CSV
+    // EXPORT CSV — semua peserta (tanpa nilai)
     // ====================================================================
 
     public function export(): StreamedResponse
@@ -287,18 +259,29 @@ class ParticipantController extends Controller
         ]);
     }
 
-    public function exportByCompetition(Competition $competition): StreamedResponse
+    // ====================================================================
+    // EXPORT PER KOMPETISI — filter babak via query string
+    // ====================================================================
+
+    public function exportByCompetition(Request $request, Competition $competition): StreamedResponse
     {
         // ── AUTO-SUBMIT ON-ACCESS ──
         $this->autoSubmitExpiredForCompetition($competition);
 
+        // ── Babak dari query string (default: penyisihan) ──
+        $babak = $request->query('babak', 'penyisihan');
+
         $registrations = Registration::where('competition_id', $competition->id)
-            ->with(['user', 'examResult'])
+            ->with([
+                'user',
+                'examResults' => fn ($q) => $q->where('babak', $babak),
+            ])
             ->get();
 
-        $filename = "Data_Peserta_" . Str::slug($competition->nama_lomba) . "_" . date('Y-m-d') . ".csv";
+        $filename = "Data_Peserta_" . Str::slug($competition->nama_lomba)
+            . "_{$babak}_" . date('Y-m-d') . ".csv";
 
-        return response()->streamDownload(function () use ($registrations) {
+        return response()->streamDownload(function () use ($registrations, $babak) {
             if (ob_get_length()) ob_end_clean();
 
             $out = fopen('php://output', 'w');
@@ -311,17 +294,20 @@ class ParticipantController extends Controller
                 'Asal Sekolah',
                 'No. WA',
                 'Status Pendaftaran',
+                'Babak',
                 'Nilai Akhir',
                 'Waktu Mulai',
                 'Waktu Selesai',
             ]);
 
             foreach ($registrations as $data) {
-                $waktuMulai = $data->examResult?->start_time
-                    ? Carbon::parse($data->examResult->start_time)->format('Y-m-d H:i:s')
+                $result = $data->examResultFor($babak);
+
+                $waktuMulai = $result?->start_time
+                    ? Carbon::parse($result->start_time)->format('Y-m-d H:i:s')
                     : '-';
-                $waktuSelesai = $data->examResult?->end_time
-                    ? Carbon::parse($data->examResult->end_time)->format('Y-m-d H:i:s')
+                $waktuSelesai = $result?->end_time
+                    ? Carbon::parse($result->end_time)->format('Y-m-d H:i:s')
                     : '-';
 
                 fputcsv($out, [
@@ -331,7 +317,8 @@ class ParticipantController extends Controller
                     $data->user->asal_sekolah ?? '-',
                     $data->user->no_wa ?? '-',
                     $data->status_pendaftaran ?? 'pending',
-                    $data->examResult?->score ?? 0,
+                    ucfirst($babak),
+                    $result?->score ?? 0,
                     $waktuMulai,
                     $waktuSelesai,
                 ]);
@@ -344,25 +331,83 @@ class ParticipantController extends Controller
         ]);
     }
 
-    public function ranking(Competition $competition)
+        // ====================================================================
+    // RANKING — KUMULATIF per babak
+    // Peserta yang sudah naik babak tetap tampil di babak sebelumnya.
+    // ====================================================================
+    public function ranking(Request $request, Competition $competition)
     {
         // ── AUTO-SUBMIT ON-ACCESS ──
         $this->autoSubmitExpiredForCompetition($competition);
 
+        // ── Urutan babak ──
+        $order = ['penyisihan' => 1, 'semifinal' => 2, 'final' => 3];
+
+        // ── Babak tersedia di kompetisi ini ──
+        $babakTersedia = $competition->questions()
+            ->select('babak')
+            ->distinct()
+            ->pluck('babak')
+            ->toArray();
+
+        usort($babakTersedia, fn ($a, $b) => ($order[$a] ?? 99) <=> ($order[$b] ?? 99));
+
+        if (empty($babakTersedia)) {
+            $babakTersedia = ['penyisihan'];
+        }
+
+        // ── Babak aktif dari query string ──
+        $babakAktif = $request->query('babak', $babakTersedia[0]);
+        if (! in_array($babakAktif, $babakTersedia, true)) {
+            $babakAktif = $babakTersedia[0];
+        }
+
+        // ══════════════════════════════════════════════════════════
+        // KUNCI: babak aktif + semua babak SESUDAHNYA.
+        // Peserta yang sudah naik ke semifinal/final TETAP muncul
+        // di penyisihan (dan semifinal) karena posisinya "lebih tinggi".
+        //
+        // Contoh:
+        // - Filter penyisihan → babak IN ('penyisihan', 'semifinal', 'final')
+        // - Filter semifinal  → babak IN ('semifinal', 'final')
+        // - Filter final      → babak IN ('final')
+        // ══════════════════════════════════════════════════════════
+        $orderAktif = $order[$babakAktif] ?? 1;
+        $babakYangDitampilkan = array_keys(array_filter(
+            $order,
+            fn ($level) => $level >= $orderAktif
+        ));
+
+        // ── Ambil peserta ──
         $registrations = Registration::where('competition_id', $competition->id)
             ->where('status_pendaftaran', 'verified')
-            ->with(['user', 'examResult'])
+            ->whereIn('babak', $babakYangDitampilkan)   // ← filter kumulatif
+            ->with([
+                'user',
+                // eager-load exam_results untuk babak aktif (untuk skor)
+                'examResults' => fn ($q) => $q->where('babak', $babakAktif),
+            ])
             ->get()
-            ->sortByDesc(function ($reg) {
-                return $reg->examResult?->score ?? 0;
-            })
+            ->sortByDesc(fn ($reg) => $reg->examResultFor($babakAktif)?->score ?? -999)
             ->values();
 
-        return view('admin.kompetisi.ranking', compact('competition', 'registrations'));
+        // ── Konteks tambahan untuk header ──
+        $totalSemuaPeserta = Registration::where('competition_id', $competition->id)
+            ->where('status_pendaftaran', 'verified')
+            ->count();
+
+        return view('admin.kompetisi.ranking', compact(
+            'competition',
+            'registrations',
+            'babakTersedia',
+            'babakAktif',
+            'totalSemuaPeserta',
+            'babakYangDitampilkan'   // ← opsional, untuk badge di view
+        ));
     }
 
     // ====================================================================
-    // JAWABAN MENTAH PER PESERTA
+    // JAWABAN MENTAH PER PESERTA — per babak
     // ====================================================================
 
     public function showAnswers(Competition $competition, Registration $registration)
@@ -371,26 +416,38 @@ class ParticipantController extends Controller
             abort(404, 'Peserta tidak terdaftar di lomba ini.');
         }
 
-        // ── AUTO-SUBMIT ON-ACCESS ──
         $this->autoSubmitExpiredForCompetition($competition);
-
-        // Refresh data setelah auto-submit
         $registration->refresh();
 
-        $questions = $competition->questions()->orderBy('id')->get();
+        // ── Babak dari query string (default: babak aktif peserta) ──
+        $babakTersedia = $competition->questions()
+            ->select('babak')->distinct()->pluck('babak')->toArray();
+
+        $order = ['penyisihan' => 1, 'semifinal' => 2, 'final' => 3];
+        usort($babakTersedia, fn ($a, $b) => ($order[$a] ?? 99) <=> ($order[$b] ?? 99));
+
+        $babak = request()->query('babak', $registration->babak ?? ($babakTersedia[0] ?? 'penyisihan'));
+        if (! in_array($babak, $babakTersedia, true) && ! empty($babakTersedia)) {
+            $babak = $babakTersedia[0];
+        }
+
+        // ── Soal & jawaban HANYA babak ini ──
+        $questions = $competition->questions()
+            ->where('babak', $babak)
+            ->orderBy('id')
+            ->get();
 
         $answers = ExamAnswer::where('registration_id', $registration->id)
+            ->whereIn('question_id', $questions->pluck('id'))
             ->get()
             ->keyBy('question_id');
 
-        // Aturan nilai
         $skorBenar  = (float) ($competition->nilai_benar  ?? 4.0);
         $skorSalah  = (float) ($competition->nilai_salah  ?? -1.0);
         $skorKosong = (float) ($competition->nilai_kosong ?? 0.0);
 
         $skorSementara = 0;
 
-        // ── HITUNG LIVE ──
         $rows = $questions->map(function ($q, $index) use ($answers, $skorBenar, $skorSalah, $skorKosong, &$skorSementara) {
             $ans = $answers->get($q->id);
             $jawabanPeserta = $ans?->answer_selected;
@@ -421,9 +478,10 @@ class ParticipantController extends Controller
         $totalSalah  = $rows->where('status', 'Salah')->count();
         $totalKosong = $rows->where('status', 'Kosong')->count();
 
-        $skorFinal = $registration->examResult?->score ?? 0;
+        $examResult  = $registration->examResultFor($babak);
+        $skorFinal   = $examResult?->score ?? 0;
 
-        $statusUjian = match ($registration->examResult?->status) {
+        $statusUjian = match ($examResult?->status) {
             'not_started' => 'Belum Mulai',
             'in_progress' => 'Sedang Ujian',
             'finished'    => 'Selesai',
@@ -440,45 +498,60 @@ class ParticipantController extends Controller
             'totalKosong',
             'skorSementara',
             'skorFinal',
-            'statusUjian'
+            'statusUjian',
+            'babak',
+            'babakTersedia'
         ));
     }
 
-    public function exportAnswersCsv(Competition $competition): StreamedResponse
+    // ====================================================================
+    // EXPORT CSV — jawaban semua peserta (per babak)
+    // ====================================================================
+
+    public function exportAnswersCsv(Request $request, Competition $competition): StreamedResponse
     {
-        // ── AUTO-SUBMIT ON-ACCESS ──
         $this->autoSubmitExpiredForCompetition($competition);
 
-        $questions = $competition->questions()->orderBy('id')->get();
+        $babak = $request->query('babak', 'penyisihan');
+
+        $questions = $competition->questions()
+            ->where('babak', $babak)
+            ->orderBy('id')
+            ->get();
 
         $skorBenar  = (float) ($competition->nilai_benar  ?? 4.0);
         $skorSalah  = (float) ($competition->nilai_salah  ?? -1.0);
         $skorKosong = (float) ($competition->nilai_kosong ?? 0.0);
 
-        $registrations = Registration::with(['user', 'examResult'])
+        $registrations = Registration::with([
+                'user',
+                'examResults' => fn ($q) => $q->where('babak', $babak),
+            ])
             ->where('competition_id', $competition->id)
             ->orderBy('id')
             ->get();
 
         $allAnswers = ExamAnswer::whereIn('registration_id', $registrations->pluck('id'))
+            ->whereIn('question_id', $questions->pluck('id'))
             ->get()
             ->groupBy('registration_id');
 
-        $filename = 'jawaban-mentah-' . Str::slug($competition->nama_lomba) . '-' . now()->format('Ymd-His') . '.csv';
+        $filename = 'jawaban-mentah-' . Str::slug($competition->nama_lomba)
+            . "_{$babak}-" . now()->format('Ymd-His') . '.csv';
 
-        return response()->streamDownload(function () use ($questions, $registrations, $allAnswers, $skorBenar, $skorSalah, $skorKosong) {
+        return response()->streamDownload(function () use ($questions, $registrations, $allAnswers, $skorBenar, $skorSalah, $skorKosong, $babak) {
             if (ob_get_length()) ob_end_clean();
 
             $out = fopen('php://output', 'w');
             fputs($out, "\xEF\xBB\xBF");
 
-            // ── HEADER ──
             $header = [
                 'No',
                 'Nama Peserta',
                 'Email',
                 'Asal Sekolah',
                 'Status Pendaftaran',
+                'Babak',
                 'Status Ujian',
                 'Skor Final',
                 'Skor Sementara',
@@ -499,33 +572,31 @@ class ParticipantController extends Controller
 
             fputcsv($out, $header);
 
-            // ── BARIS PER PESERTA ──
             $noUrut = 1;
             foreach ($registrations as $reg) {
                 $jawabanPeserta = $allAnswers->get($reg->id, collect())->keyBy('question_id');
+                $result = $reg->examResultFor($babak);
 
                 $benar  = 0;
                 $salah  = 0;
                 $kosong = 0;
                 $skorSementara = 0;
 
-                $waktuMulai = $reg->examResult?->start_time
-                    ? Carbon::parse($reg->examResult->start_time)->format('Y-m-d H:i:s')
-                    : '-';
-                $waktuSelesai = $reg->examResult?->end_time
-                    ? Carbon::parse($reg->examResult->end_time)->format('Y-m-d H:i:s')
-                    : '-';
+                $waktuMulai = $result?->start_time
+                    ? Carbon::parse($result->start_time)->format('Y-m-d H:i:s') : '-';
+                $waktuSelesai = $result?->end_time
+                    ? Carbon::parse($result->end_time)->format('Y-m-d H:i:s') : '-';
 
-                $statusUjian = match ($reg->examResult?->status) {
+                $statusUjian = match ($result?->status) {
                     'not_started' => 'Belum Mulai',
                     'in_progress' => 'Sedang Ujian',
                     'finished'    => 'Selesai',
                     default       => 'Belum Mulai',
                 };
 
-                $jumlahDijawab = $jawabanPeserta->filter(function ($ans) {
-                    return !empty($ans->answer_selected);
-                })->count();
+                $jumlahDijawab = $jawabanPeserta->filter(
+                    fn ($ans) => ! empty($ans->answer_selected)
+                )->count();
 
                 $rowJawaban = [];
                 foreach ($questions as $q) {
@@ -549,7 +620,7 @@ class ParticipantController extends Controller
                     }
                 }
 
-                $skorFinal = $reg->examResult?->score ?? 0;
+                $skorFinal = $result?->score ?? 0;
 
                 $row = array_merge([
                     $noUrut++,
@@ -557,6 +628,7 @@ class ParticipantController extends Controller
                     $reg->user->email ?? '-',
                     $reg->user->asal_sekolah ?? '-',
                     strtoupper($reg->status_pendaftaran ?? 'pending'),
+                    ucfirst($babak),
                     $statusUjian,
                     $skorFinal,
                     $skorSementara,
@@ -580,59 +652,67 @@ class ParticipantController extends Controller
         ]);
     }
 
-    public function exportSingleAnswersCsv(Competition $competition, Registration $registration): StreamedResponse
+    // ====================================================================
+    // EXPORT CSV — jawaban 1 peserta (per babak)
+    // ====================================================================
+
+    public function exportSingleAnswersCsv(Request $request, Competition $competition, Registration $registration): StreamedResponse
     {
         if ((int) $registration->competition_id !== (int) $competition->id) {
             abort(404);
         }
 
-        // ── AUTO-SUBMIT ON-ACCESS ──
         $this->autoSubmitExpiredForCompetition($competition);
         $registration->refresh();
 
-        $questions = $competition->questions()->orderBy('id')->get();
+        $babak = $request->query('babak', $registration->babak ?? 'penyisihan');
+
+        $questions = $competition->questions()
+            ->where('babak', $babak)
+            ->orderBy('id')
+            ->get();
 
         $answers = ExamAnswer::where('registration_id', $registration->id)
+            ->whereIn('question_id', $questions->pluck('id'))
             ->get()
             ->keyBy('question_id');
 
-        $filename = 'jawaban-' . Str::slug($registration->user->name ?? 'peserta') . '-' . now()->format('Ymd-His') . '.csv';
+        $examResult = $registration->examResultFor($babak);
 
-        return response()->streamDownload(function () use ($competition, $registration, $questions, $answers) {
+        $filename = 'jawaban-' . Str::slug($registration->user->name ?? 'peserta')
+            . "_{$babak}-" . now()->format('Ymd-His') . '.csv';
+
+        return response()->streamDownload(function () use ($competition, $registration, $questions, $answers, $examResult, $babak) {
             if (ob_get_length()) ob_end_clean();
 
             $out = fopen('php://output', 'w');
             fputs($out, "\xEF\xBB\xBF");
 
-            $waktuMulai = $registration->examResult?->start_time
-                ? Carbon::parse($registration->examResult->start_time)->format('Y-m-d H:i:s')
-                : '-';
-            $waktuSelesai = $registration->examResult?->end_time
-                ? Carbon::parse($registration->examResult->end_time)->format('Y-m-d H:i:s')
-                : '-';
+            $waktuMulai = $examResult?->start_time
+                ? Carbon::parse($examResult->start_time)->format('Y-m-d H:i:s') : '-';
+            $waktuSelesai = $examResult?->end_time
+                ? Carbon::parse($examResult->end_time)->format('Y-m-d H:i:s') : '-';
 
-            $statusUjian = match ($registration->examResult?->status) {
+            $statusUjian = match ($examResult?->status) {
                 'not_started' => 'Belum Mulai',
                 'in_progress' => 'Sedang Ujian',
                 'finished'    => 'Selesai',
                 default       => 'Belum Mulai',
             };
 
-            // ── INFO PESERTA ──
             fputcsv($out, ['Nama', $registration->user->name ?? '-']);
             fputcsv($out, ['Email', $registration->user->email ?? '-']);
             fputcsv($out, ['Asal Sekolah', $registration->user->asal_sekolah ?? '-']);
             fputcsv($out, ['Lomba', $competition->nama_lomba]);
+            fputcsv($out, ['Babak', ucfirst($babak)]);
             fputcsv($out, ['Status Ujian', $statusUjian]);
-            fputcsv($out, ['Skor Final', $registration->examResult?->score ?? 0]);
+            fputcsv($out, ['Skor Final', $examResult?->score ?? 0]);
             fputcsv($out, ['Waktu Mulai', $waktuMulai]);
             fputcsv($out, ['Waktu Selesai', $waktuSelesai]);
             fputcsv($out, []);
 
-            // ── HEADER ──
             fputcsv($out, ['No', 'Question ID', 'Pertanyaan', 'Kunci Jawaban', 'Jawaban Peserta', 'Status']);
 
-            // ── BARIS PER SOAL ──
             $no = 1;
             foreach ($questions as $q) {
                 $ans     = $answers->get($q->id);
@@ -641,8 +721,7 @@ class ParticipantController extends Controller
                 if ($jawaban === null || $jawaban === '') {
                     $status = 'Kosong';
                 } else {
-                    $isCorrect = ($q->jawaban_benar === $jawaban);
-                    $status = $isCorrect ? 'Benar' : 'Salah';
+                    $status = ($q->jawaban_benar === $jawaban) ? 'Benar' : 'Salah';
                 }
 
                 fputcsv($out, [
@@ -660,5 +739,26 @@ class ParticipantController extends Controller
             'Content-Type'        => 'text/csv; charset=UTF-8',
             'Content-Disposition' => 'attachment; filename="' . $filename . '"',
         ]);
+    }
+
+    // ====================================================================
+    // HELPER: jadwal per babak
+    // ====================================================================
+
+    private function resolveJadwal(Competition $competition, string $babak): array
+    {
+        $waktuMulai = match ($babak) {
+            'final'     => $competition->waktu_pelaksanaan_final,
+            'semifinal' => $competition->waktu_pelaksanaan_semifinal,
+            default     => $competition->waktu_pelaksanaan,
+        };
+
+        $durasiMenit = match ($babak) {
+            'final'     => $competition->durasi_menit_final     ?? $competition->durasi_menit ?? 120,
+            'semifinal' => $competition->durasi_menit_semifinal ?? $competition->durasi_menit ?? 120,
+            default     => $competition->durasi_menit ?? 120,
+        };
+
+        return [$waktuMulai, (int) $durasiMenit];
     }
 }
